@@ -1,4 +1,4 @@
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || ""
+const GEMINI_API_KEY = import.meta.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY || ""
 
 // Fast and actively available models on this key
 const CANDIDATE_MODELS = [
@@ -73,7 +73,7 @@ export async function getGeminiResponse(
   ]
 
   if (!GEMINI_API_KEY) {
-    throw new Error("Gemini API key is missing. Please set VITE_GEMINI_API_KEY in your .env file or Vercel Environment Variables.")
+    throw new Error("Gemini API key is missing. Please set GEMINI_API_KEY in your .env file or Vercel Environment Variables.")
   }
 
   let lastError: Error | null = null
