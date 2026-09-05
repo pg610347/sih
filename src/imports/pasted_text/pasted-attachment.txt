@@ -1,0 +1,293 @@
+═══════════════════════════════════════════════════════════════════════════════════════
+STREAK FEATURE — GENTLE DAILY MEMORY HABIT
+═══════════════════════════════════════════════════════════════════════════════════════
+
+PURPOSE:
+→ Add a gentle "Memory Streak" feature that encourages patients to engage
+with cognitive games regularly.
+→ The streak is NOT a competition and must NOT make the patient feel bad
+for missing a day.
+→ Focus on building a positive daily routine and celebrating consistency.
+→ The feature should support cognitive engagement, motivation, confidence,
+and a sense of accomplishment.
+
+IMPORTANT:
+⚠️ NEVER use language such as:
+"You failed"
+"Streak lost"
+"You missed your goal"
+"Bad performance"
+"Try harder"
+
+Instead use supportive language:
+"Welcome back!"
+"Let's continue your memory journey."
+"You made time for yourself today!"
+"Every little step counts."
+"Wonderful! You came back today."
+
+───────────────────────────────────────────────────────────────────────────────
+PATIENT HOME SCREEN — MEMORY STREAK
+───────────────────────────────────────────────────────────────────────────────
+
+→ Add a prominent but non-dominating "Memory Streak" card below the greeting.
+
+CARD DESIGN:
+• Warm, friendly card
+• Background: #F9F8F6
+• Border: subtle #D3D1C7
+• Radius: 12px
+• Padding: 24px
+• Height: approximately 120–150px
+
+CONTENT:
+
+🔥 "Your Memory Streak"
+
+"3 days"
+"You've spent time with your memories for 3 days in a row."
+
+Small visual:
+● ● ● ● ○ ○ ○
+Mon Tue Wed Thu Fri Sat Sun
+
+Current day highlighted with a teal/coral accent.
+
+→ Use a small flame or growing-leaf icon instead of a large competitive
+gaming symbol.
+
+→ The streak should visually communicate:
+CONSISTENCY → PROGRESS → ENCOURAGEMENT
+
+───────────────────────────────────────────────────────────────────────────────
+HOW THE STREAK WORKS
+───────────────────────────────────────────────────────────────────────────────
+
+→ A streak increases when the patient completes at least ONE meaningful
+cognitive activity during the day.
+
+Examples:
+✓ Completes a memory game
+✓ Completes a music recognition activity
+✓ Completes a reminiscence activity
+✓ Completes an object-matching activity
+✓ Records a Dear Diary memory
+
+→ The patient does NOT need to complete multiple games to maintain the streak.
+
+→ No time limit.
+
+→ No minimum score.
+
+→ No accuracy requirement.
+
+→ Simply participating counts.
+
+→ Maximum one streak increment per calendar day.
+
+───────────────────────────────────────────────────────────────────────────────
+GENTLE STREAK RECOVERY
+───────────────────────────────────────────────────────────────────────────────
+
+→ If the patient does not use the app for a day:
+
+NEVER display:
+❌ "Streak Lost"
+❌ "0 days"
+❌ "You missed your streak"
+
+Instead, when the patient returns:
+
+"Welcome back! 🌷"
+"Ready for another memory moment?"
+
+→ Previous achievements remain visible.
+
+→ The interface should emphasize returning rather than losing progress.
+
+OPTIONAL:
+→ Allow a "Memory Pause" / "Rest Day" concept.
+
+Example:
+"Everyone needs a day to rest. Your memory journey continues whenever
+you're ready."
+
+→ A rest day should NOT feel like failure.
+
+───────────────────────────────────────────────────────────────────────────────
+STREAK MILESTONES
+───────────────────────────────────────────────────────────────────────────────
+
+Celebrate gentle milestones:
+
+🌱 3 Days
+"You're building a lovely routine!"
+
+🌿 7 Days
+"One week of memory moments!"
+
+🌳 14 Days
+"Wonderful consistency!"
+
+🌸 30 Days
+"A month of memory moments!"
+
+⭐ 60 Days
+"What a wonderful journey!"
+
+→ Milestone celebrations should use warm animation, gentle sound/haptic
+feedback, and encouraging messages.
+
+→ Keep celebrations calm and dignified.
+
+→ Avoid casino-style effects, loud animations, countdowns, or competitive
+leaderboards.
+
+───────────────────────────────────────────────────────────────────────────────
+STREAK CELEBRATION SCREEN
+───────────────────────────────────────────────────────────────────────────────
+
+When a milestone is reached:
+
+Large friendly illustration/icon
+
+"Wonderful! 🌸"
+
+"You've shared a memory moment for 7 days."
+
+"Let's keep enjoying these moments together."
+
+[ Continue ]
+
+→ Only ONE primary action.
+
+→ Celebration disappears after the patient continues.
+
+───────────────────────────────────────────────────────────────────────────────
+STREAK + DEAR DIARY
+───────────────────────────────────────────────────────────────────────────────
+
+→ A Dear Diary recording can count toward the daily streak.
+
+Example:
+
+"You recorded a memory today."
+"Your Memory Streak: 🔥 5 days"
+
+→ This encourages patients who may not feel like playing a game to still
+participate through storytelling.
+
+→ Never force the patient to record a diary entry.
+
+───────────────────────────────────────────────────────────────────────────────
+STREAK + CAREGIVER INTERFACE
+───────────────────────────────────────────────────────────────────────────────
+
+→ Add "Memory Engagement" to the caregiver dashboard.
+
+Example card:
+
+🔥 Memory Streak
+"5 days"
+"Active today"
+
+"Last activity: Music Recognition"
+
+→ Show:
+• Current streak
+• Total active days this month
+• Last activity
+• Favorite activity
+
+→ Do NOT show the caregiver a "failure" or "poor streak" indicator.
+
+If the patient has not participated recently:
+
+"No recent activity"
+"A gentle check-in may be helpful."
+
+→ Focus on supporting the patient rather than judging performance.
+
+───────────────────────────────────────────────────────────────────────────────
+STREAK + DOCTOR INTERFACE
+───────────────────────────────────────────────────────────────────────────────
+
+→ Add "Engagement Consistency" to the Patient Overview.
+
+Display:
+
+Current Streak: 12 days
+Active Days: 18 / 30
+Last Activity: Today
+Preferred Activity: Music Recognition
+
+→ Add the streak/engagement information to the 30-day engagement graph.
+
+→ Doctors should be able to identify changes in engagement patterns.
+
+Example:
+
+"Engagement has remained consistent over the past 2 weeks."
+
+OR
+
+"Engagement has decreased compared with the previous 2 weeks."
+
+→ The streak itself should NOT be treated as a medical diagnosis.
+
+→ Avoid automatically labeling a patient as declining solely because their
+streak decreases.
+
+───────────────────────────────────────────────────────────────────────────────
+STREAK ACCESSIBILITY
+───────────────────────────────────────────────────────────────────────────────
+
+✓ Never communicate streak information through color alone.
+✓ Use icon + text + number.
+✓ Minimum 48×48px touch targets.
+✓ Minimum 14px text.
+✓ High contrast.
+✓ Simple language.
+✓ Support all 8 languages:
+Assamese | Manipuri | Khasi | Bengali | English | Hindi
++ remaining supported NER languages
+✓ Provide audio feedback for milestone celebrations.
+✓ Respect prefers-reduced-motion.
+✓ Avoid flashing or rapidly moving animations.
+✓ Screen-reader label example:
+
+"Your current Memory Streak is 7 days."
+
+───────────────────────────────────────────────────────────────────────────────
+STREAK DESIGN PRINCIPLE
+───────────────────────────────────────────────────────────────────────────────
+
+The streak is NOT a score.
+
+It represents:
+
+"I showed up today."
+"I spent a little time remembering."
+"I am building a positive routine."
+
+The primary goal is to encourage regular cognitive engagement while
+protecting the patient's dignity, confidence, and emotional wellbeing.
+
+DESIGN LANGUAGE:
+
+❌ Competition
+❌ Ranking
+❌ Leaderboards
+❌ Failure
+❌ Punishment
+❌ Pressure
+
+✓ Encouragement
+✓ Consistency
+✓ Celebration
+✓ Routine
+✓ Confidence
+✓ Positive reinforcement
+✓ Gentle return after absence
+
+═══════════════════════════════════════════════════════════════════════════════
