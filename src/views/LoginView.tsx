@@ -32,14 +32,20 @@ export default function LoginView({ role, language, onLogin, onBack, onChangeLan
     }
   }, [])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(false)
 
-    setTimeout(() => {
-      const demoAccount = DEMO_ACCOUNTS[role]
-      if (userId === demoAccount.userId && password === demoAccount.password) {
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, password, role }),
+      })
+
+      if (res.ok) {
+        const data = await res.json()
         if (remember) {
           localStorage.setItem('nercare_remember', 'true')
           localStorage.setItem('nercare_last_user', userId)
@@ -47,12 +53,43 @@ export default function LoginView({ role, language, onLogin, onBack, onChangeLan
           localStorage.removeItem('nercare_remember')
           localStorage.removeItem('nercare_last_user')
         }
+        onLogin(data.name || DEMO_ACCOUNTS[role].name)
+        return
+      }
+
+      if (res.status === 401) {
+        setError(true)
+        setLoading(false)
+        return
+      }
+
+      // If server error or API unavailable, check demo credentials
+      const demoAccount = DEMO_ACCOUNTS[role]
+      if (userId === demoAccount.userId && password === demoAccount.password) {
+        if (remember) {
+          localStorage.setItem('nercare_remember', 'true')
+          localStorage.setItem('nercare_last_user', userId)
+        }
+        onLogin(demoAccount.name)
+        return
+      }
+
+      setError(true)
+      setLoading(false)
+    } catch (err) {
+      console.warn('API call failed, checking local credentials:', err)
+      const demoAccount = DEMO_ACCOUNTS[role]
+      if (userId === demoAccount.userId && password === demoAccount.password) {
+        if (remember) {
+          localStorage.setItem('nercare_remember', 'true')
+          localStorage.setItem('nercare_last_user', userId)
+        }
         onLogin(demoAccount.name)
       } else {
         setError(true)
         setLoading(false)
       }
-    }, 800)
+    }
   }
 
   const roleLabels = {
