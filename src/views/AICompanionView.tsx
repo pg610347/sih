@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { getGeminiResponse, buildSystemPrompt, type GeminiMessage } from '@/gemini'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -28,125 +29,13 @@ const PERSONAS: Record<Gender, { emoji: string; name: string; intro: string; rin
   neutral: { emoji: '🧑', name: 'Saathi', ring: 'ring-amber/40',   intro: "Hello! 🌾 I am Saathi, your companion. I am here whenever you need me. What would you like to do?" },
 }
 
-// ─── Intent detection & AI responses ─────────────────────────────────────────
+// ─── Fallback responses (used when Gemini API is unavailable) ──────────────
 
-interface AIResponse {
-  text: string
-  navigate?: NavigateTarget
-  chips?: string[]
-}
-
-const INTENT_MAP: { patterns: RegExp; response: AIResponse }[] = [
-  {
-    patterns: /\b(hello|hi|hey|good morning|good evening|namaste|namaskar|khublei)\b/i,
-    response: { text: "Hello! 🌸 It is so lovely to hear from you. How are you feeling today?", chips: ["I am fine 😊", "Play a game 🎮", "Open my diary 📔", "Play music 🎵"] },
-  },
-  {
-    patterns: /\b(fine|good|well|happy|great|okay|ok)\b/i,
-    response: { text: "That is wonderful to hear ❤️ I am so glad. Would you like to do something enjoyable together?", chips: ["Play a game 🎮", "Listen to music 🎵", "Look at old things 🖼️", "Write in my diary 📔"] },
-  },
-  {
-    patterns: /\b(diary|record|write|tell you|share a memory|childhood|save|speak)\b/i,
-    response: { text: "I would love to hear your thoughts ❤️ Let me open your diary so you can speak freely.", navigate: 'diary' },
-  },
-  {
-    patterns: /\b(bihu|assamese music|assam|rongali|borgeet|pepa|dhol)\b/i,
-    response: { text: "Bihu music is so beautiful 🎶 Let's listen to some Assamese songs from home together!", navigate: 'music' },
-  },
-  {
-    patterns: /\b(music|song|sing|listen|play.*music|manipuri|khasi|nagamese|melody|tune)\b/i,
-    response: { text: "Music is such a beautiful gift 🎵 Let's go and listen to songs from your home region.", navigate: 'music' },
-  },
-  {
-    patterns: /\b(memory pairs|pairs|card|flip|match|matching)\b/i,
-    response: { text: "Memory Pairs is a lovely game! 🃏 Let's play together. Take your time — there is no hurry.", navigate: 'pairs' },
-  },
-  {
-    patterns: /\b(pattern|what comes next|sequence|complete)\b/i,
-    response: { text: "The pattern game helps keep our mind sharp 🌟 Let's do it together!", navigate: 'pattern' },
-  },
-  {
-    patterns: /\b(kitchen|sort|field|category|sorting)\b/i,
-    response: { text: "The sorting game is so much fun! 🧺 Let's see what belongs in the kitchen and what belongs in the field.", navigate: 'sort' },
-  },
-  {
-    patterns: /\b(put in order|steps|sequence game|order|arrange)\b/i,
-    response: { text: "Let's put the steps in order together 📋 Take your time — I will be right here.", navigate: 'sequence' },
-  },
-  {
-    patterns: /\b(game|play|fun|activity|brain|something|anything|entertain|bored)\b/i,
-    response: { text: "Games are so enjoyable! 😊 Let's play Memory Pairs — it is a lovely one.", navigate: 'pairs' },
-  },
-  {
-    patterns: /\b(remember|old things|diya|jhapi|lota|silbatta|chula|gamosa|familiar|household|home things)\b/i,
-    response: { text: "Let's look at some familiar things from home together ❤️ So many beautiful memories.", navigate: 'reminiscence' },
-  },
-  {
-    patterns: /\b(day|date|today|morning|evening|season|time|orientation|what day)\b/i,
-    response: { text: "Let me help you with today's date and time 🌤️ Together we will work it out.", navigate: 'orientation' },
-  },
-  {
-    patterns: /\b(home|main menu|back|start|beginning|go back)\b/i,
-    response: { text: "Taking you home 🏡 I am always here when you need me.", navigate: 'home' },
-  },
-  {
-    patterns: /\b(family|children|grandchildren|son|daughter|husband|wife|grandson|granddaughter|nati|natin)\b/i,
-    response: { text: "Your family sounds so precious ❤️ I would love to hear more about them. Would you like to save this memory in your diary?", chips: ["Yes, open my diary 📔", "Tell me more", "Not right now"] },
-  },
-  {
-    patterns: /\b(festival|bihu|puja|eid|christmas|nongkrem|hornbill|gaan ngai|ras lila)\b/i,
-    response: { text: "Festivals are such joyful memories 🎉 What was your favourite part? Would you like to share it in your diary?", chips: ["Record in diary 📔", "Play festival music 🎵", "Not right now"] },
-  },
-  {
-    patterns: /\b(sad|lonely|miss|tired|forget|confused|lost|alone|cry|upset|low|not well)\b/i,
-    response: { text: "I hear you ❤️ You are never alone. I am right here with you. Take all the time you need. Would some music help you feel better?", chips: ["Yes, play music 🎵", "I want to talk 💬", "Open my diary 📔"] },
-  },
-  {
-    patterns: /\b(forget|forgot|can't remember|memory|remember)\b/i,
-    response: { text: "That is perfectly okay ❤️ Forgetting things happens to all of us. Let's try something gentle together. Would you like to look at some familiar things?", chips: ["Look at old things 🖼️", "Play a game 🎮", "Relax with music 🎵"] },
-  },
-  {
-    patterns: /\b(medicine|tablet|pill|medication|dose|capsule)\b/i,
-    response: { text: "Your medicines are very important 💊 Your caregiver keeps track of them and will help you take the right ones at the right time.", chips: ["Thank you", "I have a question"] },
-  },
-  {
-    patterns: /\b(food|eat|hungry|breakfast|lunch|dinner|rice|dal|pitha|bamboo)\b/i,
-    response: { text: "Good food is so important 🍚 Your caregiver knows your favourite Assamese dishes and makes sure you eat well. Shall we do something together while you wait?", chips: ["Play a game 🎮", "Listen to music 🎵"] },
-  },
-  {
-    patterns: /\b(caregiver|helper|nurse|person|family|who is|where is)\b/i,
-    response: { text: "Your caregiver is looking after you and is always nearby ❤️ If you need them, just let anyone around you know. I am here with you right now.", chips: ["Okay, thank you", "Play something 🎮"] },
-  },
-  {
-    patterns: /\b(thank|thanks|thank you|dhanyabad|shukriya)\b/i,
-    response: { text: "You are always welcome 🌸 It makes me so happy to be here with you. Is there anything else you would like to do?", chips: ["Play a game 🎮", "Listen to music 🎵", "Open my diary 📔"] },
-  },
-]
-
-const FALLBACK_RESPONSES: AIResponse[] = [
+const FALLBACK_RESPONSES = [
   { text: "I am here with you ❤️ Whatever is on your mind, you can share it with me.", chips: ["Play a game 🎮", "Listen to music 🎵", "Open my diary 📔"] },
-  { text: "That is lovely to hear. I enjoy our conversations so much 🌸 Is there something you would like to do together?", chips: ["Play a game 🎮", "Look at old things 🖼️", "Listen to music 🎵"] },
-  { text: "Thank you for sharing that with me ❤️ I am always here to listen. Shall we do something enjoyable?", chips: ["Open my diary 📔", "Play a game 🎮", "Relax with music 🎵"] },
-  { text: "You know, every little moment we spend together means a great deal 🌿 What would you like to do?", chips: ["Listen to music 🎵", "Play a game 🎮", "Look at old things 🖼️"] },
-  { text: "I hear you 💛 Take all the time you need. I am right here. Would you like to play, listen, or just talk?", chips: ["Just talk 💬", "Play a game 🎮", "Listen to music 🎵"] },
-  { text: "That sounds wonderful 🌾 Your stories and memories are so precious. Would you like to record something in your diary?", chips: ["Open my diary 📔", "Play a game 🎮", "Not right now"] },
-  { text: "I understand. You never have to explain yourself to me ❤️ We can simply be here together. What would feel nice right now?", chips: ["Relax with music 🎵", "Play a game 🎮", "Look at old things 🖼️"] },
-  { text: "How thoughtful of you 🌸 I always love hearing what is in your heart. Shall we do something gentle together?", chips: ["Listen to music 🎵", "Open my diary 📔", "Play a game 🎮"] },
-  { text: "Your words mean so much to me 💛 Every day with you is a blessing. Would you like to explore some old memories?", chips: ["Look at old things 🖼️", "Listen to music 🎵", "Play a game 🎮"] },
+  { text: "That is lovely to hear. Would you like to do something together? 🌸", chips: ["Play a game 🎮", "Look at old things 🖼️", "Listen to music 🎵"] },
+  { text: "Thank you for sharing that with me ❤️ Shall we do something enjoyable?", chips: ["Open my diary 📔", "Play a game 🎮", "Relax with music 🎵"] },
 ]
-
-let lastFallbackIdx = -1
-
-function getAIResponse(input: string): AIResponse {
-  for (const { patterns, response } of INTENT_MAP) {
-    if (patterns.test(input)) return response
-  }
-  // Pick a fallback that wasn't used last time
-  let idx: number
-  do { idx = Math.floor(Math.random() * FALLBACK_RESPONSES.length) } while (idx === lastFallbackIdx && FALLBACK_RESPONSES.length > 1)
-  lastFallbackIdx = idx
-  return FALLBACK_RESPONSES[idx]
-}
 
 // ─── Text-to-speech ───────────────────────────────────────────────────────────
 
@@ -268,6 +157,7 @@ export default function AICompanionView({ onBack, onNavigate }: Props) {
   const msgEndRef = useRef<HTMLDivElement>(null)
   const srRef = useRef<any>(null)
   const msgId = useRef(0)
+  const [geminiHistory, setGeminiHistory] = useState<GeminiMessage[]>([])
 
   const p = PERSONAS[persona]
 
@@ -284,15 +174,17 @@ export default function AICompanionView({ onBack, onNavigate }: Props) {
     setIntroduced(true)
     const timer = setTimeout(() => {
       addMessage({ role: 'ai', text: p.intro, chips: DEFAULT_CHIPS })
+      setGeminiHistory([{ role: 'model', parts: [{ text: JSON.stringify({ text: p.intro, chips: DEFAULT_CHIPS }) }] }])
       setVoiceState('speaking')
       speak(p.intro, speed, () => setVoiceState('idle'))
     }, 500)
     return () => clearTimeout(timer)
   }, []) // eslint-disable-line
 
-  const sendMessage = (text: string, mode: 'voice' | 'text' = 'text') => {
+  const sendMessage = async (text: string, mode: 'voice' | 'text' = 'text') => {
     if (!text.trim()) return
-    addMessage({ role: 'user', text: text.trim(), inputMode: mode })
+    const trimmed = text.trim()
+    addMessage({ role: 'user', text: trimmed, inputMode: mode })
     setInput('')
     setVoiceState('thinking')
 
@@ -306,13 +198,21 @@ export default function AICompanionView({ onBack, onNavigate }: Props) {
       }
     }
 
-    setTimeout(() => {
-      const res = getAIResponse(text)
+    try {
+      const systemPrompt = buildSystemPrompt(p.name)
+      const res = await getGeminiResponse(trimmed, geminiHistory, systemPrompt)
+
+      // Update Gemini conversation history
+      setGeminiHistory(prev => [
+        ...prev,
+        { role: 'user' as const, parts: [{ text: trimmed }] },
+        { role: 'model' as const, parts: [{ text: JSON.stringify(res) }] },
+      ])
 
       if (res.navigate && res.navigate !== 'home') {
         addMessage({ role: 'ai', text: res.text, navigating: res.navigate })
-        speakIfVoice(res.text, () => setTimeout(() => onNavigate(res.navigate!), 800))
-        if (mode !== 'voice') setTimeout(() => onNavigate(res.navigate!), 1200)
+        speakIfVoice(res.text, () => setTimeout(() => onNavigate(res.navigate as NavigateTarget), 800))
+        if (mode !== 'voice') setTimeout(() => onNavigate(res.navigate as NavigateTarget), 1200)
       } else if (res.navigate === 'home') {
         addMessage({ role: 'ai', text: res.text })
         speakIfVoice(res.text, () => setTimeout(onBack, 800))
@@ -321,7 +221,12 @@ export default function AICompanionView({ onBack, onNavigate }: Props) {
         addMessage({ role: 'ai', text: res.text, chips: res.chips })
         speakIfVoice(res.text)
       }
-    }, 900)
+    } catch (error: any) {
+      console.error('Gemini API error:', error)
+      const fallback = FALLBACK_RESPONSES[Math.floor(Math.random() * FALLBACK_RESPONSES.length)]
+      addMessage({ role: 'ai', text: fallback.text, chips: fallback.chips })
+      speakIfVoice(fallback.text)
+    }
   }
 
   const startListening = () => {
