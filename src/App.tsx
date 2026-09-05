@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { type Language, LANG_STORAGE_KEY } from './i18n'
 import LanguageSelectView from './views/LanguageSelectView'
 import HomeView from './views/HomeView'
+import LoginView from './views/LoginView'
+import WelcomeView from './views/WelcomeView'
 import PatientView from './views/PatientView'
 import CaregiverView from './views/CaregiverView'
 import DoctorView from './views/DoctorView'
@@ -18,7 +20,12 @@ export const LANGS: Record<Language, { name: string; nativeName: string; greetin
   khasi:    { name: 'Khasi',     nativeName: 'Ka Ktien Khasi',  greeting: 'Khublei',  script: 'latin'      },
 }
 
-type AppView = 'language' | 'role'
+// Persistence keys
+const AUTH_KEY = 'nercare_auth_v1'
+
+type AppView = 'language' | 'role' | 'login' | 'welcome' | 'app'
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getSavedLanguage(): Language {
   try {
@@ -32,13 +39,59 @@ function saveLanguage(lang: Language) {
   try { localStorage.setItem(LANG_STORAGE_KEY, lang) } catch { /* ignore */ }
 }
 
+interface AuthState {
+  role: Role
+  name: string
+}
+
+function getSavedAuth(): AuthState | null {
+  try {
+    const raw = localStorage.getItem(AUTH_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (parsed && parsed.role && parsed.name) return parsed as AuthState
+  } catch { /* ignore */ }
+  return null
+}
+
+function saveAuth(state: AuthState) {
+  try { localStorage.setItem(AUTH_KEY, JSON.stringify(state)) } catch { /* ignore */ }
+}
+
+function clearAuth() {
+  try { localStorage.removeItem(AUTH_KEY) } catch { /* ignore */ }
+}
+
+// ─── Initial view logic ─────────────────────────────────────────────────────
+
+function getInitialView(): AppView {
+  try {
+    // If user has a remembered session, go straight to login
+    const hasLang = !!localStorage.getItem(LANG_STORAGE_KEY)
+    const hasRemember = localStorage.getItem('nercare_remember') === 'true'
+    if (hasLang && hasRemember) return 'login'
+    if (hasLang) return 'role'
+  } catch { /* ignore */ }
+  return 'language'
+}
+
+function getInitialRole(): Role | null {
+  try {
+    const auth = getSavedAuth()
+    if (auth) return auth.role
+  } catch { /* ignore */ }
+  return null
+}
+
+// ─── App ─────────────────────────────────────────────────────────────────────
+
 export default function App() {
-  const [view, setView] = useState<AppView>(() => {
-    try { return localStorage.getItem(LANG_STORAGE_KEY) ? 'role' : 'language' }
-    catch { return 'language' }
-  })
-  const [role, setRole] = useState<Role | null>(null)
+  const [view, setView] = useState<AppView>(getInitialView)
+  const [role, setRole] = useState<Role | null>(getInitialRole)
   const [language, setLanguage] = useState<Language>(getSavedLanguage)
+  const [userName, setUserName] = useState<string>('')
+
+  // ─── Language selection handlers ───
 
   const handleLanguageSelect = (l: Language) => setLanguage(l)
 
@@ -52,6 +105,44 @@ export default function App() {
     saveLanguage(l)
   }
 
+  // ─── Role selection handler ───
+
+  const handleSelectRole = (r: Role) => {
+    setRole(r)
+    setView('login')
+  }
+
+  // ─── Login handler ───
+
+  const handleLogin = (name: string) => {
+    setUserName(name)
+    if (role) saveAuth({ role, name })
+    setView('welcome')
+  }
+
+  // ─── Welcome → Dashboard ───
+
+  const handleWelcomeContinue = () => {
+    setView('app')
+  }
+
+  // ─── Back / logout handlers ───
+
+  const handleBackToRole = () => {
+    setRole(null)
+    clearAuth()
+    setView('role')
+  }
+
+  const handleLogout = () => {
+    setRole(null)
+    setUserName('')
+    clearAuth()
+    setView('role')
+  }
+
+  // ─── View rendering ───
+
   if (view === 'language') {
     return (
       <LanguageSelectView
@@ -62,24 +153,49 @@ export default function App() {
     )
   }
 
-  if (!role) {
+  if (view === 'role' || (view === 'login' && !role)) {
     return (
       <HomeView
         language={language}
-        onSelectRole={setRole}
+        onSelectRole={handleSelectRole}
         onChangeLanguage={() => setView('language')}
       />
     )
   }
+
+  if (view === 'login' && role) {
+    return (
+      <LoginView
+        role={role}
+        language={language}
+        onLogin={handleLogin}
+        onBack={handleBackToRole}
+        onChangeLanguage={() => setView('language')}
+      />
+    )
+  }
+
+  if (view === 'welcome' && role) {
+    return (
+      <WelcomeView
+        role={role}
+        name={userName}
+        onContinue={handleWelcomeContinue}
+      />
+    )
+  }
+
+  // ─── Authenticated dashboard views ───
+
   if (role === 'patient') {
     return (
       <PatientView
         language={language}
         onChangeLanguage={handleChangeLanguage}
-        onBack={() => setRole(null)}
+        onBack={handleLogout}
       />
     )
   }
-  if (role === 'caregiver') return <CaregiverView onBack={() => setRole(null)} />
-  return <DoctorView onBack={() => setRole(null)} />
+  if (role === 'caregiver') return <CaregiverView onBack={handleLogout} />
+  return <DoctorView onBack={handleLogout} />
 }

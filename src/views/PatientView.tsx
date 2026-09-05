@@ -534,7 +534,7 @@ function DiaryGame({ onBack, recordActivity, saveMemory, onViewMemories }: {
   const [seconds, setSeconds] = useState(0)
   const [mood, setMood] = useState<string | null>(null)
   const [moodLabel, setMoodLabel] = useState<string | null>(null)
-  const [micBlocked, setMicBlocked] = useState(false)
+  const [micError, setMicError] = useState<string | null>(null)
   const [playbackUrl, setPlaybackUrl] = useState<string | null>(null)
   const [pbPlaying, setPbPlaying] = useState(false)
   const [pbElapsed, setPbElapsed] = useState(0)
@@ -560,7 +560,7 @@ function DiaryGame({ onBack, recordActivity, saveMemory, onViewMemories }: {
 
   const start = async () => {
     setSeconds(0)
-    setMicBlocked(false)
+    setMicError(null)
     setPlaybackUrl(null)
     setPbPlaying(false)
     setPbElapsed(0)
@@ -570,7 +570,25 @@ function DiaryGame({ onBack, recordActivity, saveMemory, onViewMemories }: {
     pbAudioRef.current = null
 
     try {
+      // Check for secure context (required for getUserMedia)
+      if (!window.isSecureContext) {
+        throw new DOMException(
+          'getUserMedia requires a secure context (HTTPS or localhost)',
+          'SecurityError'
+        )
+      }
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new TypeError('navigator.mediaDevices.getUserMedia is not available')
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+
+      // Verify we actually got an audio track
+      if (stream.getAudioTracks().length === 0) {
+        stream.getTracks().forEach(t => t.stop())
+        throw new DOMException('No audio tracks in returned stream', 'NotFoundError')
+      }
+
       streamRef.current = stream
 
       // Pick the best supported MIME type in priority order
@@ -592,14 +610,53 @@ function DiaryGame({ onBack, recordActivity, saveMemory, onViewMemories }: {
       }
 
       mr.start(200) // 200ms timeslice — reliable across browsers
-    } catch (err) {
-      console.warn('Microphone unavailable:', err)
-      setMicBlocked(true)
-      // Proceed to recording phase anyway — user can still navigate, timer shows, no audio saved
-    }
 
-    setPhase('recording')
-    timerRef.current = setInterval(() => setSeconds(s => s + 1), 1000)
+      // ONLY enter recording state after mic + recorder are confirmed working
+      setPhase('recording')
+      timerRef.current = setInterval(() => setSeconds(s => s + 1), 1000)
+
+    } catch (err: unknown) {
+      // Clean up any partial stream
+      streamRef.current?.getTracks().forEach(t => t.stop())
+      streamRef.current = null
+      mediaRecorderRef.current = null
+
+      const domErr = err instanceof DOMException ? err : null
+      const errName = domErr?.name ?? (err instanceof TypeError ? 'TypeError' : 'Unknown')
+
+      console.error('Dear Diary — microphone error:', errName, err)
+
+      // Detect iframe restriction
+      const inIframe = window.self !== window.top
+
+      let message: string
+      switch (errName) {
+        case 'NotAllowedError':
+          message = inIframe
+            ? 'Microphone access is blocked in this preview. Please open the app directly in your browser to record.'
+            : 'Microphone permission was denied. Please allow microphone access in your browser settings and try again.'
+          break
+        case 'NotFoundError':
+          message = 'No microphone was found on this device. Please connect a microphone and try again.'
+          break
+        case 'NotReadableError':
+          message = 'Your microphone is busy or unavailable. Please close other apps using the microphone and try again.'
+          break
+        case 'SecurityError':
+          message = 'Microphone recording requires a secure connection (HTTPS). Please open the app in a supported browser.'
+          break
+        case 'TypeError':
+          message = 'Your browser does not support audio recording. Please use a modern browser like Chrome or Edge.'
+          break
+        default:
+          message = inIframe
+            ? 'Microphone access is not available in this preview environment. Please open the app directly in your browser.'
+            : 'Something went wrong with the microphone. Please try again.'
+      }
+
+      setMicError(message)
+      // Do NOT enter recording phase — stay on 'ready'
+    }
   }
 
   // ─── Stop recording ───
@@ -779,26 +836,17 @@ function DiaryGame({ onBack, recordActivity, saveMemory, onViewMemories }: {
   // ─── Recording ───
   if (phase === 'recording') return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-rose/5 px-8 py-12 gap-8 text-center animate-fadeUp">
-      {micBlocked ? (
-        <div className="bg-amber/20 rounded-2xl px-6 py-4 border border-amber/40 max-w-xs">
-          <p className="text-bark font-bold text-xl">🎙️ Microphone not available</p>
-          <p className="text-bark/60 text-lg mt-1">Your memory will be saved without audio recording. Allow microphone access in your browser settings to enable voice recording.</p>
-        </div>
-      ) : (
-        <p className="text-rose text-2xl font-bold">Recording your words...</p>
-      )}
+      <p className="text-rose text-2xl font-bold">Recording your words...</p>
       {prompt && (
         <div className="bg-white rounded-2xl px-6 py-4 border border-sand max-w-xs">
           <p className="text-bark text-2xl font-serif italic">"{prompt}"</p>
         </div>
       )}
-      {!micBlocked && (
-        <div className="flex items-end justify-center gap-2 h-20">
-          {Array.from({ length: 18 }).map((_, i) => (
-            <div key={i} className="wave-bar" style={{ animationDelay: `${i * 0.06}s`, animationDuration: `${0.45 + (i % 4) * 0.12}s` }} />
-          ))}
-        </div>
-      )}
+      <div className="flex items-end justify-center gap-2 h-20">
+        {Array.from({ length: 18 }).map((_, i) => (
+          <div key={i} className="wave-bar" style={{ animationDelay: `${i * 0.06}s`, animationDuration: `${0.45 + (i % 4) * 0.12}s` }} />
+        ))}
+      </div>
       <p className="font-mono text-bark text-6xl font-bold tracking-widest">{fmt(seconds)}</p>
       <p className="text-bark/50 text-2xl">Take your time. Say as much as you like.</p>
       <button
@@ -831,11 +879,17 @@ function DiaryGame({ onBack, recordActivity, saveMemory, onViewMemories }: {
             ))}
           </div>
         </div>
+        {micError && (
+          <div className="bg-amber/20 rounded-2xl px-6 py-5 border border-amber/40 max-w-sm text-center">
+            <p className="text-bark font-bold text-xl">🎙️ Could not access microphone</p>
+            <p className="text-bark/70 text-lg mt-2 leading-relaxed">{micError}</p>
+          </div>
+        )}
         <button
           onClick={start}
           className="animate-record w-44 h-44 rounded-full bg-rose text-white text-7xl flex items-center justify-center shadow-2xl active:scale-95 transition-transform mt-2"
         >🎙️</button>
-        <p className="text-bark/60 text-2xl font-semibold">Tap to start recording</p>
+        <p className="text-bark/60 text-2xl font-semibold">{micError ? 'Tap to try again' : 'Tap to start recording'}</p>
       </div>
     </div>
   )
