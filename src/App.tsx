@@ -18,6 +18,8 @@ export const LANGS: Record<Language, { name: string; nativeName: string; greetin
   hindi:    { name: 'Hindi',     nativeName: 'हिंदी',            greeting: 'नमस्ते',  script: 'devanagari' },
   manipuri: { name: 'Manipuri',  nativeName: 'মেইতেই',          greeting: 'নমস্কার', script: 'brahmic'    },
   khasi:    { name: 'Khasi',     nativeName: 'Ka Ktien Khasi',  greeting: 'Khublei',  script: 'latin'      },
+  bhojpuri: { name: 'Bhojpuri',  nativeName: 'भोजपुरी',        greeting: 'प्रणाम',   script: 'devanagari' },
+  konkani:  { name: 'Konkani',   nativeName: 'कोंकणी',         greeting: 'नमस्कार', script: 'devanagari' },
 }
 
 // Persistence keys
