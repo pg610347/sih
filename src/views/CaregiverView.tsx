@@ -253,9 +253,9 @@ const NAV_ITEMS: { tab: Tab; emoji: string; label: string }[] = [
   { tab: 'ai',          emoji: '🤖', label: 'AI Assistant'},
 ]
 
-interface Props { onBack: () => void }
+interface Props { onBack: () => void; userName?: string }
 
-export default function CaregiverView({ onBack }: Props) {
+export default function CaregiverView({ onBack, userName }: Props) {
   const [tab, setTab] = useState<Tab>('overview')
   const [expandedDiary, setExpandedDiary] = useState<number | null>(null)
   const [medChecked, setMedChecked] = useState<Set<string>>(
@@ -277,7 +277,7 @@ export default function CaregiverView({ onBack }: Props) {
           ←
         </button>
         <div className="flex-1">
-          <p className="text-parchment/60 text-xs">Caregiver Dashboard</p>
+          <p className="text-parchment/60 text-xs">Caregiver Dashboard {userName ? `· ${userName}` : ''}</p>
           <h1 className="font-serif text-parchment text-lg font-semibold">{PATIENT.name}</h1>
         </div>
         <div className="text-right hidden sm:block">

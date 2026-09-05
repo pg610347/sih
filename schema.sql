@@ -1,5 +1,5 @@
 -- ============================================================
--- NerCare PostgreSQL Schema for Login Tracking on Vercel
+-- NerCare PostgreSQL Schema for Login & User Tracking on Vercel
 -- ============================================================
 
 -- 1. Users Table
@@ -9,8 +9,16 @@ CREATE TABLE IF NOT EXISTS users (
   name VARCHAR(100) NOT NULL,
   role VARCHAR(50) NOT NULL,
   password VARCHAR(100) NOT NULL,
+  language VARCHAR(50) DEFAULT 'english',
+  region VARCHAR(100) DEFAULT 'Assam',
+  age INT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Ensure columns exist if table was created previously
+ALTER TABLE users ADD COLUMN IF NOT EXISTS language VARCHAR(50) DEFAULT 'english';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS region VARCHAR(100) DEFAULT 'Assam';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS age INT;
 
 -- 2. Login Logs Table
 CREATE TABLE IF NOT EXISTS login_logs (
@@ -25,14 +33,9 @@ CREATE TABLE IF NOT EXISTS login_logs (
 );
 
 -- 3. Default Demo Users Seed
-INSERT INTO users (user_id, name, role, password)
+INSERT INTO users (user_id, name, role, password, language, region)
 VALUES 
-  ('P001', 'Priya', 'patient', 'care123'),
-  ('C001', 'Anjali', 'caregiver', 'care123'),
-  ('D001', 'Dr. Sharma', 'doctor', 'care123')
+  ('P001', 'Priya', 'patient', 'care123', 'assamese', 'Assam'),
+  ('C001', 'Anjali', 'caregiver', 'care123', 'english', 'Assam'),
+  ('D001', 'Dr. Sharma', 'doctor', 'care123', 'english', 'Assam')
 ON CONFLICT (user_id) DO NOTHING;
-
--- 4. Helpful Query to Inspect Who Logged In
--- SELECT user_id, name, role, status, ip_address, created_at 
--- FROM login_logs 
--- ORDER BY created_at DESC;

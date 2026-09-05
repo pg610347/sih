@@ -19,6 +19,7 @@ interface Message {
 interface Props {
   onBack: () => void
   onNavigate: (screen: NavigateTarget) => void
+  userName?: string
 }
 
 // ─── Companion personas ───────────────────────────────────────────────────────
@@ -145,7 +146,7 @@ const DEFAULT_CHIPS = [
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function AICompanionView({ onBack, onNavigate }: Props) {
+export default function AICompanionView({ onBack, onNavigate, userName }: Props) {
   const [persona, setPersona] = useState<Gender>('female')
   const [speed, setSpeed] = useState(0.9)
   const [voiceState, setVoiceState] = useState<VoiceState>('idle')
@@ -172,11 +173,14 @@ export default function AICompanionView({ onBack, onNavigate }: Props) {
   useEffect(() => {
     if (introduced) return
     setIntroduced(true)
+    const introText = userName 
+      ? `Namaste, ${userName}! 🌸 I am ${p.name}, your companion. I am here to listen and help. What would you like to do today?`
+      : p.intro
     const timer = setTimeout(() => {
-      addMessage({ role: 'ai', text: p.intro, chips: DEFAULT_CHIPS })
-      setGeminiHistory([{ role: 'model', parts: [{ text: JSON.stringify({ text: p.intro, chips: DEFAULT_CHIPS }) }] }])
+      addMessage({ role: 'ai', text: introText, chips: DEFAULT_CHIPS })
+      setGeminiHistory([{ role: 'model', parts: [{ text: JSON.stringify({ text: introText, chips: DEFAULT_CHIPS }) }] }])
       setVoiceState('speaking')
-      speak(p.intro, speed, () => setVoiceState('idle'))
+      speak(introText, speed, () => setVoiceState('idle'))
     }, 500)
     return () => clearTimeout(timer)
   }, []) // eslint-disable-line
@@ -199,7 +203,7 @@ export default function AICompanionView({ onBack, onNavigate }: Props) {
     }
 
     try {
-      const systemPrompt = buildSystemPrompt(p.name)
+      const systemPrompt = buildSystemPrompt(p.name, userName)
       const res = await getGeminiResponse(trimmed, geminiHistory, systemPrompt)
 
       // Update Gemini conversation history

@@ -284,9 +284,9 @@ function ScoreBar({ score, color }: { score: number; color: string }) {
   )
 }
 
-interface Props { onBack: () => void }
+interface Props { onBack: () => void; userName?: string }
 
-export default function DoctorView({ onBack }: Props) {
+export default function DoctorView({ onBack, userName }: Props) {
   const [tab, setTab] = useState<DoctorTab>('patients')
   const [selectedPatient, setSelectedPatient] = useState(PATIENTS[0])
   const [filter, setFilter] = useState<'all' | 'alert'>('all')
@@ -310,7 +310,7 @@ export default function DoctorView({ onBack }: Props) {
           ←
         </button>
         <div className="flex-1">
-          <p className="text-parchment/50 text-xs">Doctor Portal</p>
+          <p className="text-parchment/50 text-xs">Doctor Portal {userName ? `· ${userName}` : ''}</p>
           <h1 className="font-serif text-parchment text-lg font-semibold">
             {tab === 'patients'  && 'All Patients'}
             {tab === 'profile'   && selectedPatient.name}

@@ -58,9 +58,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       // Check if user exists in database
       const users = await sql`
-        SELECT user_id, name, role, password
+        SELECT user_id, name, role, password, language, region
         FROM users
-        WHERE user_id = ${userId}
+        WHERE LOWER(user_id) = LOWER(${userId})
         LIMIT 1;
       `
 
@@ -69,12 +69,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // If database is empty or user is one of demo users but not yet seeded, auto-seed
       if (!user && DEMO_FALLBACK[userId]) {
         const demo = DEMO_FALLBACK[userId]
+        const defLang = demo.role === 'patient' ? 'assamese' : 'english'
         await sql`
-          INSERT INTO users (user_id, name, role, password)
-          VALUES (${userId}, ${demo.name}, ${demo.role}, ${demo.password})
+          INSERT INTO users (user_id, name, role, password, language, region)
+          VALUES (${userId}, ${demo.name}, ${demo.role}, ${demo.password}, ${defLang}, 'Assam')
           ON CONFLICT (user_id) DO NOTHING;
         `
-        user = { user_id: userId, name: demo.name, role: demo.role, password: demo.password }
+        user = { user_id: userId, name: demo.name, role: demo.role, password: demo.password, language: defLang, region: 'Assam' }
       }
 
       // Check credentials
@@ -102,6 +103,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       return res.status(200).json({
         success: true,
+        user: {
+          userId: user.user_id,
+          name: user.name,
+          role: user.role,
+          language: user.language || 'english',
+          region: user.region || 'Assam',
+        },
         name: user.name,
         role: user.role,
         message: 'Login successful and recorded in PostgreSQL.',
@@ -120,6 +128,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (demoUser && demoUser.password === password) {
     return res.status(200).json({
       success: true,
+      user: {
+        userId,
+        name: demoUser.name,
+        role: demoUser.role,
+        language: demoUser.role === 'patient' ? 'assamese' : 'english',
+        region: 'Assam',
+      },
       name: demoUser.name,
       role: demoUser.role,
       warning: 'PostgreSQL database not yet configured. Please connect Postgres in Vercel Storage.',

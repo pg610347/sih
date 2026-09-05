@@ -306,7 +306,7 @@ const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-di
 
 const AI_SCREEN: Screen = 'ai'
 
-function HomeScreen({ onSelect, soundEnabled, setSoundEnabled, streak, doneToday, isReturning, weekDotDates, weekDates, tr }: {
+function HomeScreen({ onSelect, soundEnabled, setSoundEnabled, streak, doneToday, isReturning, weekDotDates, weekDates, tr, userName }: {
   onSelect: (s: Screen) => void
   soundEnabled: boolean
   setSoundEnabled: (v: boolean) => void
@@ -316,6 +316,7 @@ function HomeScreen({ onSelect, soundEnabled, setSoundEnabled, streak, doneToday
   weekDotDates: ReturnType<typeof getWeekDotDates>
   weekDates: string[]
   tr: PatientStrings
+  userName?: string
 }) {
   const activities = [
     { screen: 'reminiscence' as Screen, emoji: '🖼️', title: tr.rememberThis,   desc: tr.rememberThisDesc,    color: 'bg-amber/20 border-amber' },
@@ -335,7 +336,7 @@ function HomeScreen({ onSelect, soundEnabled, setSoundEnabled, streak, doneToday
     <div className="min-h-screen bg-parchment flex flex-col px-5 py-7 gap-5 overflow-auto">
       <div className="bg-white rounded-3xl p-6 border border-sand">
         <p className="text-bark/50 text-xl">{dateStr}</p>
-        <p className="font-serif text-bark text-5xl font-bold mt-2">{tr.greeting}, Priya 👋</p>
+        <p className="font-serif text-bark text-5xl font-bold mt-2">{tr.greeting}, {userName || 'Priya'} 👋</p>
         <p className="text-bark/60 text-2xl mt-1">{timeStr}</p>
         <div className="flex items-center gap-3 mt-4 flex-wrap">
           <button
@@ -1354,9 +1355,9 @@ function SettingsScreen({ language, onChangeLanguage, soundEnabled, setSoundEnab
 
 // ─── Root ──────────────────────────────────────────────────────────────────────
 
-interface Props { language: Language; onChangeLanguage: (l: Language) => void; onBack: () => void }
+interface Props { language: Language; onChangeLanguage: (l: Language) => void; onBack: () => void; userName?: string }
 
-export default function PatientView({ language, onChangeLanguage, onBack }: Props) {
+export default function PatientView({ language, onChangeLanguage, onBack, userName }: Props) {
   const [screen, setScreen] = useState<Screen>('home')
   const [soundEnabled, setSoundEnabled] = useState(true)
   const { streak, doneToday, isReturning, weekDotDates, weekDates, milestone, clearMilestone, recordActivity } = useStreak()
@@ -1388,6 +1389,7 @@ export default function PatientView({ language, onChangeLanguage, onBack }: Prop
       weekDotDates={weekDotDates}
       weekDates={weekDates}
       tr={tr}
+      userName={userName}
     />
   )
   if (screen === 'reminiscence') return <ReminiscenceGame onBack={() => setScreen('home')} soundEnabled={soundEnabled} recordActivity={recordActivity} />
@@ -1399,6 +1401,6 @@ export default function PatientView({ language, onChangeLanguage, onBack }: Prop
   if (screen === 'sort')         return <CategorySortGame onBack={() => setScreen('home')} soundEnabled={soundEnabled} recordActivity={recordActivity} />
   if (screen === 'pattern')      return <PatternGame      onBack={() => setScreen('home')} soundEnabled={soundEnabled} recordActivity={recordActivity} />
   if (screen === 'sequence')     return <SequenceGame     onBack={() => setScreen('home')} soundEnabled={soundEnabled} recordActivity={recordActivity} />
-  if (screen === 'ai')           return <AICompanionView  onBack={() => setScreen('home')} onNavigate={s => setScreen(s as Screen)} />
+  if (screen === 'ai')           return <AICompanionView  onBack={() => setScreen('home')} onNavigate={s => setScreen(s as Screen)} userName={userName} />
   return null
 }

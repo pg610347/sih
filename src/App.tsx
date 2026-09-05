@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { type Language, LANG_STORAGE_KEY } from './i18n'
 import LanguageSelectView from './views/LanguageSelectView'
 import HomeView from './views/HomeView'
-import LoginView from './views/LoginView'
+import LoginView, { type UserProfile } from './views/LoginView'
 import WelcomeView from './views/WelcomeView'
 import PatientView from './views/PatientView'
 import CaregiverView from './views/CaregiverView'
@@ -39,9 +39,12 @@ function saveLanguage(lang: Language) {
   try { localStorage.setItem(LANG_STORAGE_KEY, lang) } catch { /* ignore */ }
 }
 
-interface AuthState {
+export interface AuthState {
   role: Role
   name: string
+  userId?: string
+  language?: Language
+  region?: string
 }
 
 function getSavedAuth(): AuthState | null {
@@ -86,10 +89,14 @@ function getInitialRole(): Role | null {
 // ─── App ─────────────────────────────────────────────────────────────────────
 
 export default function App() {
+  const initialAuth = getSavedAuth()
   const [view, setView] = useState<AppView>(getInitialView)
-  const [role, setRole] = useState<Role | null>(getInitialRole)
-  const [language, setLanguage] = useState<Language>(getSavedLanguage)
-  const [userName, setUserName] = useState<string>('')
+  const [role, setRole] = useState<Role | null>(initialAuth ? initialAuth.role : getInitialRole)
+  const [language, setLanguage] = useState<Language>(() => {
+    if (initialAuth?.language && initialAuth.language in LANGS) return initialAuth.language
+    return getSavedLanguage()
+  })
+  const [userName, setUserName] = useState<string>(initialAuth ? initialAuth.name : '')
 
   // ─── Language selection handlers ───
 
@@ -114,9 +121,26 @@ export default function App() {
 
   // ─── Login handler ───
 
-  const handleLogin = (name: string) => {
-    setUserName(name)
-    if (role) saveAuth({ role, name })
+  const handleLogin = (profile: UserProfile | string) => {
+    const userProfile: UserProfile = typeof profile === 'string'
+      ? { name: profile, role: role || 'patient' }
+      : profile
+
+    setUserName(userProfile.name)
+    if (userProfile.role) setRole(userProfile.role)
+    if (userProfile.language && userProfile.language in LANGS) {
+      setLanguage(userProfile.language)
+      saveLanguage(userProfile.language)
+    }
+
+    saveAuth({
+      role: userProfile.role || role || 'patient',
+      name: userProfile.name,
+      userId: userProfile.userId,
+      language: userProfile.language,
+      region: userProfile.region,
+    })
+
     setView('welcome')
   }
 
@@ -193,9 +217,10 @@ export default function App() {
         language={language}
         onChangeLanguage={handleChangeLanguage}
         onBack={handleLogout}
+        userName={userName}
       />
     )
   }
-  if (role === 'caregiver') return <CaregiverView onBack={handleLogout} />
-  return <DoctorView onBack={handleLogout} />
+  if (role === 'caregiver') return <CaregiverView onBack={handleLogout} userName={userName} />
+  return <DoctorView onBack={handleLogout} userName={userName} />
 }
