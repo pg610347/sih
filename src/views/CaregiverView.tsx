@@ -277,7 +277,7 @@ export default function CaregiverView({ onBack, userName }: Props) {
           ←
         </button>
         <div className="flex-1">
-          <p className="text-parchment/60 text-xs">Caregiver Dashboard {userName ? `· ${userName}` : ''}</p>
+          <p className="text-parchment/60 text-xs font-semibold tracking-wide">Smaran · Caregiver Dashboard {userName ? `· ${userName}` : ''}</p>
           <h1 className="font-serif text-parchment text-lg font-semibold">{PATIENT.name}</h1>
         </div>
         <div className="text-right hidden sm:block">

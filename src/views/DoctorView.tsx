@@ -310,7 +310,7 @@ export default function DoctorView({ onBack, userName }: Props) {
           ←
         </button>
         <div className="flex-1">
-          <p className="text-parchment/50 text-xs">Doctor Portal {userName ? `· ${userName}` : ''}</p>
+          <p className="text-parchment/60 text-xs font-semibold tracking-wide">Smaran · Clinical Portal {userName ? `· ${userName}` : ''}</p>
           <h1 className="font-serif text-parchment text-lg font-semibold">
             {tab === 'patients'  && 'All Patients'}
             {tab === 'profile'   && selectedPatient.name}

@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import type { Language } from '../App'
 import { t, type PatientStrings } from '../i18n'
+import { MUSIC_TRACKS, type MusicTrack, TWINKLE_NOTES } from '../musicTracks'
 import AICompanionView from './AICompanionView'
 import LanguageSelectView from './LanguageSelectView'
 import SavedMemoriesView from './SavedMemoriesView'
@@ -57,6 +58,83 @@ function useMelodyPlayer() {
   return { play, stop }
 }
 
+// ─── Sound Effects for Cognitive Games ─────────────────────────────────────────
+
+function playSoundEffect(type: 'tap' | 'flip' | 'match' | 'fanfare' | 'hint' | 'undo') {
+  try {
+    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+    if (!AudioCtx) return
+    const ctx = new AudioCtx()
+    const now = ctx.currentTime
+
+    if (type === 'tap' || type === 'flip') {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(type === 'flip' ? 440 : 330, now)
+      osc.frequency.exponentialRampToValueAtTime(type === 'flip' ? 660 : 220, now + 0.08)
+      gain.gain.setValueAtTime(0.08, now)
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start(now)
+      osc.stop(now + 0.09)
+    } else if (type === 'match') {
+      [523.25, 659.25, 783.99].forEach((freq, i) => {
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.type = 'triangle'
+        osc.frequency.setValueAtTime(freq, now + i * 0.07)
+        gain.gain.setValueAtTime(0.12, now + i * 0.07)
+        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.07 + 0.3)
+        osc.connect(gain)
+        gain.connect(ctx.destination)
+        osc.start(now + i * 0.07)
+        osc.stop(now + i * 0.07 + 0.32)
+      })
+    } else if (type === 'fanfare') {
+      [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.type = 'sine'
+        osc.frequency.setValueAtTime(freq, now + i * 0.09)
+        gain.gain.setValueAtTime(0.14, now + i * 0.09)
+        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.09 + 0.45)
+        osc.connect(gain)
+        gain.connect(ctx.destination)
+        osc.start(now + i * 0.09)
+        osc.stop(now + i * 0.09 + 0.48)
+      })
+    } else if (type === 'hint') {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(587.33, now)
+      osc.frequency.exponentialRampToValueAtTime(880, now + 0.18)
+      gain.gain.setValueAtTime(0.1, now)
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start(now)
+      osc.stop(now + 0.26)
+    } else if (type === 'undo') {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'triangle'
+      osc.frequency.setValueAtTime(392, now)
+      osc.frequency.exponentialRampToValueAtTime(261.63, now + 0.12)
+      gain.gain.setValueAtTime(0.08, now)
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start(now)
+      osc.stop(now + 0.13)
+    }
+  } catch {
+    // Audio context may fail if unsupported or muted
+  }
+}
+
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
 const NER_OBJECTS = [
@@ -69,13 +147,7 @@ const NER_OBJECTS = [
   { id: 'gamosa',   emoji: '🧣', name: 'Gamosa',   localName: 'গামোচা',   scene: 'White cotton with red borders, handwoven on the taat loom. Given at Bihu as a sign of love and respect.', sensory: 'Soft crispness of freshly washed cotton, warm from the sun', prompt: 'Did your family weave gamosa at home or buy from the market?' },
 ]
 
-const MUSIC_TRACKS = [
-  { id: 'bihu', emoji: '🪗', title: 'O Mur Apunar Deh', region: 'Assam — Rongali Bihu', instrument: 'Pepa flute & Dhol drum', lyric: 'আহা মোৰ অপুনাৰ দেহ\nহাঁহি হাঁহি কথা কোৱা...', lyricEng: '"O my own beloved, speak to me with a smile..."', scene: 'Young women in red mekhela-chador dance in dew-wet paddy fields while the pepa horn rings across the valley.', notes: [329.63, 0, 392, 440, 392, 329.63, 0, 293.66, 261.63, 293.66, 329.63, 392, 0, 440, 493.88, 440, 392, 329.63, 0, 293.66, 329.63], bpm: 88 },
-  { id: 'manipuri', emoji: '🥁', title: 'Ras Lila Kirtan', region: 'Manipur — Ras Mahotsav', instrument: 'Pung drum & Kartal cymbals', lyric: 'হে কৃষ্ণ হে মুৰলীধৰ\nহে নন্দনন্দন...', lyricEng: '"O Krishna, O flute-bearer, O son of Nanda..."', scene: 'November full moon at Govindaji temple, Imphal. Dancers in gold Potloi dresses circle the mandap.', notes: [261.63, 293.66, 329.63, 0, 349.23, 329.63, 293.66, 0, 261.63, 246.94, 261.63, 293.66, 0, 349.23, 392, 349.23, 329.63, 261.63], bpm: 62 },
-  { id: 'khasi', emoji: '🎵', title: 'Nongkynmaw', region: 'Meghalaya — Nongkrem Festival', instrument: 'Tangmuri flute & Ksing drum', lyric: 'Ia phi ba ïaleh\nia phi ba ïaneh...', lyricEng: '"Go and come back, go and return to us..."', scene: 'Autumn harvest at Smit village. Women in jainsem silks dance in circles on the hilltop as clouds touch the dancers.', notes: [261.63, 293.66, 349.23, 0, 392, 349.23, 293.66, 261.63, 0, 293.66, 349.23, 392, 0, 440, 392, 349.23, 293.66, 261.63], bpm: 80 },
-  { id: 'nagamese', emoji: '🪘', title: 'Ura Ura Ke', region: 'Nagaland — Hornbill Festival', instrument: 'Log drum & bamboo flute', lyric: 'Ura ura ke\nmor ghorer ghora ke...', lyricEng: '"Fly, fly, like a bird — come back to my home..."', scene: 'Warriors in hornbill headdresses beat enormous log drums around the bonfire at Kisama, Kohima.', notes: [392, 440, 0, 392, 329.63, 293.66, 329.63, 0, 392, 440, 493.88, 0, 440, 392, 329.63, 392, 0, 440, 392], bpm: 110 },
-  { id: 'borgeet', emoji: '🎙️', title: 'Manuhor Manuhe', region: 'Assam — Sankardeva Borgeet', instrument: 'Khol drum & Taal cymbals', lyric: 'মানুহৰ মানুহে হয়\nসেইটো নিশ্চয়...', lyricEng: '"A person becomes human through love for others — this is certain..."', scene: "Composed 500 years ago by Srimanta Sankardeva. Sung every morning in Assam's sattras.", notes: [329.63, 349.23, 392, 0, 440, 392, 349.23, 0, 329.63, 293.66, 261.63, 293.66, 329.63, 0, 349.23, 392, 440, 392, 349.23, 329.63, 293.66, 261.63], bpm: 68 },
-]
+// Music data (50+ songs across all 8 languages with lyrics and YouTube links) imported from ../musicTracks
 
 const PAIR_CARDS = [
   { pairId: 'a', emoji: '🪔', name: 'Diya' },
@@ -84,80 +156,185 @@ const PAIR_CARDS = [
   { pairId: 'd', emoji: '🪨', name: 'Silbatta' },
   { pairId: 'e', emoji: '🏺', name: 'Chula' },
   { pairId: 'f', emoji: '🧣', name: 'Gamosa' },
+  { pairId: 'g', emoji: '☕', name: 'Chai Cup' },
+  { pairId: 'h', emoji: '🔔', name: 'Puja Bell' },
+  { pairId: 'i', emoji: '🌸', name: 'Marigold' },
+  { pairId: 'j', emoji: '🌾', name: 'Golden Rice' },
 ]
 
 type SortItem = { emoji: string; name: string; localName: string; bin: 0 | 1; hint: string }
 const SORT_ITEMS: SortItem[] = [
-  { emoji: '🪨', name: 'Silbatta',      localName: 'শিলবট্টা', bin: 0, hint: 'The silbatta is used to grind spices in the kitchen.' },
-  { emoji: '🌾', name: 'Rice Paddy',    localName: 'ধান',       bin: 1, hint: 'Rice grows in the paddy field, not the kitchen.' },
-  { emoji: '🫙', name: 'Lota',          localName: 'লোটা',      bin: 0, hint: 'The brass lota holds water in the kitchen.' },
-  { emoji: '🌿', name: 'Bamboo Shoot',  localName: 'বাঁহ গাজ',  bin: 1, hint: 'Bamboo shoots grow in the field or forest.' },
-  { emoji: '🧣', name: 'Gamosa',        localName: 'গামোচা',    bin: 1, hint: 'The gamosa is woven on the loom, outside on the verandah.' },
-  { emoji: '🏺', name: 'Chula',         localName: 'চুলা',      bin: 0, hint: 'The clay chula is the stove — it lives in the kitchen.' },
-  { emoji: '🧺', name: 'Jhapi',         localName: 'জাপি',      bin: 1, hint: 'The jhapi carries things from the field to the home.' },
-  { emoji: '🥣', name: 'Mortar',        localName: 'খৰাল',      bin: 0, hint: 'The wooden mortar is used to pound herbs in the kitchen.' },
-  { emoji: '🌱', name: 'Seedling',      localName: 'পুলি',      bin: 1, hint: 'Seedlings are planted in the paddy field.' },
-  { emoji: '🪔', name: 'Diya',          localName: 'দিয়া',      bin: 0, hint: 'Diyas are lit inside the home during prayers and festivals.' },
+  { emoji: '🪨', name: 'Silbatta',      localName: 'শিলবট্টা', bin: 0, hint: 'The silbatta grinds fresh ginger and turmeric in the kitchen.' },
+  { emoji: '🌾', name: 'Rice Paddy',    localName: 'ধান খেতি', bin: 1, hint: 'Rice stalks grow under the warm sunshine in the open field.' },
+  { emoji: '🫙', name: 'Lota',          localName: 'লোটা',      bin: 0, hint: 'The brass lota holds clean water on the kitchen counter.' },
+  { emoji: '🌿', name: 'Bamboo Grove',  localName: 'বাঁহনি',     bin: 1, hint: 'Tall bamboo groves grow outdoors in the village.' },
+  { emoji: '🧣', name: 'Gamosa Loom',   localName: 'গামোচা',    bin: 1, hint: 'The wooden weaving loom sits outside in the courtyard verandah.' },
+  { emoji: '🏺', name: 'Chula',         localName: 'চুলা',      bin: 0, hint: 'The clay chula is the heart of the kitchen where meals simmer.' },
+  { emoji: '🧺', name: 'Jhapi',         localName: 'জাপি',      bin: 1, hint: 'The woven jhapi protects farmers from rain out in the fields.' },
+  { emoji: '🥣', name: 'Mortar (Kharal)', localName: 'খৰাল',    bin: 0, hint: 'The stone mortar crushes spices and herbs in the kitchen.' },
+  { emoji: '🌱', name: 'Paddy Seedling', localName: 'পুলি',     bin: 1, hint: 'Tender green seedlings are transplanted into wet field soil.' },
+  { emoji: '🪔', name: 'Diya',          localName: 'দিয়া',      bin: 0, hint: 'Diyas are filled with mustard oil and lit in the prayer room.' },
+  { emoji: '🍳', name: 'Kadai (Wok)',   localName: 'কেৰাহী',    bin: 0, hint: 'The iron kadai fries crispy delicacies in the kitchen.' },
+  { emoji: '🪵', name: 'Firewood Stack', localName: 'খৰিৰ স্তূপ', bin: 1, hint: 'Firewood is gathered from the forest and stacked outside in the yard.' },
+  { emoji: '🍵', name: 'Clay Kulhad',   localName: 'মাটিৰ কাপ',  bin: 0, hint: 'Earthen tea cups hold steaming spiced chai in the kitchen.' },
+  { emoji: '🐃', name: 'Plow & Bullocks', localName: 'হাল',     bin: 1, hint: 'Bullocks plow the deep earth in the paddy fields at dawn.' },
+  { emoji: '🥄', name: 'Wooden Ladle',  localName: 'হেতা',      bin: 0, hint: 'The wooden ladle stirs boiling dal and vegetable curry.' },
+  { emoji: '🪴', name: 'Tulsi Courtyard', localName: 'তুলসী ভেটি', bin: 1, hint: 'The holy Tulsi shrine is nurtured outside in the central courtyard.' },
 ]
 
-type PatternRound = { seq: string[]; answer: string; wrong: string }
+type PatternRound = { seq: string[]; answer: string; wrong: string; hint: string }
 const PATTERN_ROUNDS: PatternRound[] = [
-  { seq: ['🪔', '🧺', '🪔'], answer: '🧺', wrong: '🏺' },
-  { seq: ['🌾', '🪔', '🌾'], answer: '🪔', wrong: '🧺' },
-  { seq: ['🧺', '🫙', '🧺'], answer: '🫙', wrong: '🌾' },
-  { seq: ['🏺', '🌿', '🏺'], answer: '🌿', wrong: '🧺' },
-  { seq: ['🪔', '🧣', '🪔'], answer: '🧣', wrong: '🏺' },
-  { seq: ['🌾', '🧺', '🌾'], answer: '🧺', wrong: '🪔' },
-  { seq: ['🫙', '🪔', '🫙'], answer: '🪔', wrong: '🌾' },
-  { seq: ['🧣', '🪨', '🧣'], answer: '🪨', wrong: '🧺' },
+  { seq: ['🪔', '🧺', '🪔'], answer: '🧺', wrong: '🏺', hint: 'The pattern alternates: Diya, Basket, Diya... next is the Basket!' },
+  { seq: ['🌾', '🪔', '🌾'], answer: '🪔', wrong: '🧺', hint: 'Rice, Diya, Rice... next comes the glowing Diya!' },
+  { seq: ['🧺', '🫙', '🧺'], answer: '🫙', wrong: '🌾', hint: 'Basket, Lota, Basket... next comes the brass Lota!' },
+  { seq: ['🏺', '🌿', '🏺'], answer: '🌿', wrong: '🧺', hint: 'Clay Chula, Green Leaf, Clay Chula... next is the Green Leaf!' },
+  { seq: ['🪔', '🧣', '🪔'], answer: '🧣', wrong: '🏺', hint: 'Diya, Gamosa, Diya... next comes the festive Gamosa!' },
+  { seq: ['🌾', '🧺', '🌾'], answer: '🧺', wrong: '🪔', hint: 'Golden Rice, Basket, Golden Rice... next is the Basket!' },
+  { seq: ['🫙', '🪔', '🫙'], answer: '🪔', wrong: '🌾', hint: 'Brass Lota, Diya, Brass Lota... next comes the Diya!' },
+  { seq: ['🧣', '🪨', '🧣'], answer: '🪨', wrong: '🧺', hint: 'Gamosa, Silbatta, Gamosa... next is the Silbatta!' },
+  { seq: ['🌸', '🌸', '🪔', '🌸', '🌸'], answer: '🪔', wrong: '🌸', hint: 'Two flowers, then one Diya. After two flowers comes the Diya!' },
+  { seq: ['🔔', '🪔', '🔔', '🪔'], answer: '🔔', wrong: '🏺', hint: 'Bell, Diya, Bell, Diya... rhythm repeats with the Bell!' },
+  { seq: ['☕', '🍵', '☕'], answer: '🍵', wrong: '🫙', hint: 'Chai cup, Green tea, Chai cup... next is Green tea!' },
+  { seq: ['🌱', '🌿', '🌱'], answer: '🌿', wrong: '🌾', hint: 'Seedling, Leaf, Seedling... next grows into a Leaf!' },
 ]
 
 type SeqTask = { title: string; emoji: string; steps: { emoji: string; text: string }[] }
 const SEQUENCE_TASKS: SeqTask[] = [
-  { title: 'Making Assamese Morning Tea', emoji: '🍵',
+  {
+    title: 'Making Morning Chai',
+    emoji: '🍵',
     steps: [
-      { emoji: '🪣', text: 'Fetch water from the well' },
-      { emoji: '🔥', text: 'Boil it on the chula' },
-      { emoji: '🍃', text: 'Add tea leaves' },
+      { emoji: '🪣', text: 'Fetch fresh water & milk' },
+      { emoji: '🔥', text: 'Boil water with crushed ginger' },
+      { emoji: '🍃', text: 'Add fragrant tea leaves' },
+      { emoji: '☕', text: 'Pour warm chai into cups' },
     ],
   },
-  { title: 'Lighting a Diya for Puja', emoji: '🪔',
+  {
+    title: 'Lighting a Diya for Puja',
+    emoji: '🪔',
     steps: [
-      { emoji: '🫙', text: 'Fill the diya with mustard oil' },
-      { emoji: '🧵', text: 'Place the cotton wick' },
-      { emoji: '🔥', text: 'Light it with a matchstick' },
+      { emoji: '🫙', text: 'Fill the clay diya with oil' },
+      { emoji: '🧵', text: 'Gently place the cotton wick' },
+      { emoji: '🔥', text: 'Light with a matchstick' },
     ],
   },
-  { title: 'Cooking Rice on the Chula', emoji: '🍚',
+  {
+    title: 'Cooking Rice on the Chula',
+    emoji: '🍚',
     steps: [
-      { emoji: '🪣', text: 'Wash the rice with clean water' },
-      { emoji: '🏺', text: 'Put it in the pot on the chula' },
-      { emoji: '♨️', text: 'Wait until the water is gone' },
+      { emoji: '🪣', text: 'Rinse rice in clean water' },
+      { emoji: '🏺', text: 'Place pot on the warm chula' },
+      { emoji: '♨️', text: 'Simmer until tender & fluffy' },
     ],
   },
-  { title: 'Grinding Spices on Silbatta', emoji: '🌶️',
+  {
+    title: 'Grinding Fresh Spices on Silbatta',
+    emoji: '🌶️',
     steps: [
-      { emoji: '💧', text: 'Wet the grinding stone' },
-      { emoji: '🫚', text: 'Place ginger and turmeric on it' },
-      { emoji: '🪨', text: 'Roll the stone back and forth' },
+      { emoji: '💧', text: 'Wet the grinding stone clean' },
+      { emoji: '🫚', text: 'Place ginger and fresh turmeric' },
+      { emoji: '🪨', text: 'Roll stone back & forth smoothly' },
     ],
   },
-  { title: 'Weaving the Gamosa', emoji: '🧣',
+  {
+    title: 'Watering the Sacred Tulsi Altar',
+    emoji: '🪴',
     steps: [
-      { emoji: '🧵', text: 'Thread the loom with white cotton' },
-      { emoji: '🔴', text: 'Add red thread for the border' },
-      { emoji: '🧵', text: 'Weave row by row with care' },
+      { emoji: '🫙', text: 'Fill brass lota with well water' },
+      { emoji: '🚶', text: 'Walk to the courtyard Tulsi shrine' },
+      { emoji: '💧', text: 'Pour gently at the roots with prayer' },
+    ],
+  },
+  {
+    title: 'Serving a Festive Meal on Banana Leaf',
+    emoji: '🍽️',
+    steps: [
+      { emoji: '🍃', text: 'Lay fresh green banana leaves' },
+      { emoji: '🍚', text: 'Serve warm rice with golden ghee' },
+      { emoji: '🥗', text: 'Add vegetable curries and dal' },
+    ],
+  },
+  {
+    title: 'Weaving the Traditional Gamosa',
+    emoji: '🧣',
+    steps: [
+      { emoji: '🧵', text: 'Thread loom with soft white cotton' },
+      { emoji: '🔴', text: 'Set red thread for floral borders' },
+      { emoji: '✨', text: 'Weave row by row with patience' },
+    ],
+  },
+  {
+    title: 'Evening Routine for Peaceful Sleep',
+    emoji: '🌙',
+    steps: [
+      { emoji: '🛏️', text: 'Smooth clean sheets on bed' },
+      { emoji: '🪔', text: 'Turn down room lights softly' },
+      { emoji: '🙏', text: 'Close eyes with a calming prayer' },
     ],
   },
 ]
 
-const ORI_QUESTIONS = [
-  { icon: '🌤️', q: 'What time of day is it right now?', options: ['🌅  Early morning', '☀️  Daytime', '🌆  Evening', '🌙  Night'] },
-  { icon: '🌾', q: 'What season is it in Assam right now?', options: ['🌸  Bihu season — spring', '🌧️  Monsoon — the rains', '🍂  Autumn — harvest time', '❄️  Winter — foggy mornings'] },
-  { icon: '🌊', q: 'Which river flows through Assam?', options: ['🌊  The Brahmaputra', '🏔️  The Ganga', '🌿  The Barak', '🦅  The Imphal'] },
-  { icon: '🎉', q: 'Which festival is celebrated in April in Assam?', options: ['🪔  Bihu — the harvest festival', '🥁  Hornbill Festival', '🎋  Sangai Festival', '🌺  Pung Cholom'] },
-  { icon: '🦏', q: 'Which animal is the pride of Assam?', options: ['🦏  The one-horned rhinoceros', '🐅  The Royal Bengal Tiger', '🦅  The Hornbill bird', '🐬  The river dolphin'] },
-]
+function getDynamicOrientationQuestions() {
+  const now = new Date()
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+  const todayDay = days[now.getDay()]
+  
+  const hour = now.getHours()
+  let currentTimeOfDay = 'Daytime'
+  if (hour >= 5 && hour < 12) currentTimeOfDay = 'Early Morning'
+  else if (hour >= 12 && hour < 17) currentTimeOfDay = 'Afternoon'
+  else if (hour >= 17 && hour < 21) currentTimeOfDay = 'Evening'
+  else currentTimeOfDay = 'Night'
+
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+  const currentMonth = months[now.getMonth()]
+
+  return [
+    {
+      icon: '📅',
+      q: 'What day of the week is it today?',
+      correct: todayDay,
+      options: [todayDay, ...days.filter(d => d !== todayDay).slice(0, 3)].sort(() => 0.5 - Math.random()),
+      feedback: `Today is ${todayDay}! A wonderful day filled with peaceful moments.`
+    },
+    {
+      icon: '🌤️',
+      q: 'What part of the day is it right now?',
+      correct: currentTimeOfDay,
+      options: ['Early Morning', 'Afternoon', 'Evening', 'Night'],
+      feedback: `Right now it is ${currentTimeOfDay.toLowerCase()}. Take a gentle breath and relax.`
+    },
+    {
+      icon: '🗓️',
+      q: 'Which month of the year are we in?',
+      correct: currentMonth,
+      options: [currentMonth, ...months.filter(m => m !== currentMonth).slice(0, 3)].sort(() => 0.5 - Math.random()),
+      feedback: `We are currently in ${currentMonth}. Nature and the days keep moving gracefully.`
+    },
+    {
+      icon: '🌊',
+      q: 'Which majestic river flows through Assam?',
+      correct: 'The Brahmaputra',
+      options: ['The Brahmaputra', 'The Ganga', 'The Barak', 'The Yamuna'],
+      feedback: 'The mighty Brahmaputra river brings life, water, and greenery to all of Assam.'
+    },
+    {
+      icon: '🎉',
+      q: 'Which festival brings songs and joy in spring?',
+      correct: 'Bihu Festival',
+      options: ['Bihu Festival', 'Hornbill Festival', 'Sangai Festival', 'Chhath Puja'],
+      feedback: 'Bihu is the joyous celebration of spring, harvest, singing, and togetherness!'
+    },
+    {
+      icon: '🦏',
+      q: 'Which animal is cherished as the pride of Assam?',
+      correct: 'One-Horned Rhinoceros',
+      options: ['One-Horned Rhinoceros', 'Royal Bengal Tiger', 'Great Hornbill', 'Snow Leopard'],
+      feedback: 'The famous one-horned rhinoceros of Kaziranga is a symbol of strength and peace.'
+    },
+  ]
+}
 
 type Screen = 'home' | 'reminiscence' | 'music' | 'diary' | 'orientation' | 'pairs' | 'sort' | 'pattern' | 'sequence' | 'ai' | 'settings' | 'memories'
 type DiaryPhase = 'ready' | 'recording' | 'stopping' | 'playback' | 'done' | 'saved'
@@ -335,6 +512,10 @@ function HomeScreen({ onSelect, soundEnabled, setSoundEnabled, streak, doneToday
   return (
     <div className="min-h-screen bg-parchment flex flex-col px-5 py-7 gap-5 overflow-auto">
       <div className="bg-white rounded-3xl p-6 border border-sand">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xl">🪔</span>
+          <span className="text-forest text-xs font-bold tracking-[0.2em] uppercase">Smaran · स्मरण Care</span>
+        </div>
         <p className="text-bark/50 text-xl">{dateStr}</p>
         <p className="font-serif text-bark text-5xl font-bold mt-2">{tr.greeting}, {userName || 'Priya'} 👋</p>
         <p className="text-bark/60 text-2xl mt-1">{timeStr}</p>
@@ -403,36 +584,99 @@ function HomeScreen({ onSelect, soundEnabled, setSoundEnabled, streak, doneToday
   )
 }
 
+// ─── Speech Synthesis Helper ──────────────────────────────────────────────────
+
+function speakSingAlong(text: string, langCode: string) {
+  if (!('speechSynthesis' in window)) return
+  window.speechSynthesis.cancel()
+  const utt = new SpeechSynthesisUtterance(text)
+  utt.lang = langCode || 'hi-IN'
+  utt.rate = 0.78
+  utt.pitch = 1.05
+  utt.volume = 1
+  window.speechSynthesis.speak(utt)
+}
+
+function stopSingAlong() {
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel()
+  }
+}
+
 // ─── Reminiscence game ─────────────────────────────────────────────────────────
 
 function ReminiscenceGame({ onBack, soundEnabled, recordActivity }: { onBack: () => void; soundEnabled: boolean; recordActivity: (n: string) => void }) {
   const [idx, setIdx] = useState(0)
   const [phase, setPhase] = useState<'show' | 'memory'>('show')
+  const [isNarrating, setIsNarrating] = useState(false)
   const { celebrating, message, celebKey, celebrate } = useCelebration(soundEnabled)
   const obj = NER_OBJECTS[idx % NER_OBJECTS.length]
-  const next = () => { setIdx(i => i + 1); setPhase('show') }
+
+  const handleBack = () => {
+    stopSingAlong()
+    setIsNarrating(false)
+    onBack()
+  }
+
+  const next = () => {
+    stopSingAlong()
+    setIsNarrating(false)
+    if (soundEnabled) playSoundEffect('tap')
+    setIdx(i => i + 1)
+    setPhase('show')
+  }
+
+  const toggleNarration = () => {
+    if (isNarrating) {
+      stopSingAlong()
+      setIsNarrating(false)
+    } else {
+      if (soundEnabled) playSoundEffect('hint')
+      setIsNarrating(true)
+      const narrationText = `${obj.name}. ${obj.scene}. ${obj.sensory}. ${obj.prompt}`
+      speakSingAlong(narrationText, 'en-IN')
+    }
+  }
 
   if (phase === 'memory') return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-amber/5 px-6 py-10 gap-7 text-center animate-fadeUp">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-amber/5 px-6 py-10 gap-6 text-center animate-fadeUp">
       <span className="text-[110px] leading-none">{obj.emoji}</span>
-      <p className="font-serif text-bark text-4xl font-bold">{obj.name}</p>
-      <div className="bg-white rounded-3xl p-7 border border-sand max-w-sm text-left">
-        <p className="text-bark/50 text-lg font-bold tracking-wide uppercase mb-3">A memory</p>
-        <p className="text-bark text-2xl leading-relaxed">{obj.scene}</p>
-        <p className="text-bark/50 text-xl mt-4 italic">{obj.sensory}</p>
+      <div>
+        <p className="font-serif text-bark text-4xl font-bold">{obj.name}</p>
+        <p className="text-bark/50 text-xl font-serif italic">{obj.localName}</p>
       </div>
+
+      <div className="bg-white rounded-3xl p-7 border border-sand max-w-sm text-left shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-bark/50 text-lg font-bold tracking-wide uppercase">A Cherished Memory</p>
+          <button
+            onClick={toggleNarration}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95 ${
+              isNarrating ? 'bg-forest text-white animate-pulse' : 'bg-sand/60 text-bark hover:bg-sand'
+            }`}
+          >
+            <span>{isNarrating ? '⏹️ Stop' : '🔊 Listen'}</span>
+          </button>
+        </div>
+        <p className="text-bark text-2xl leading-relaxed">{obj.scene}</p>
+        <p className="text-bark/60 text-xl mt-4 italic border-t border-sand/60 pt-3">{obj.sensory}</p>
+      </div>
+
       <div className="bg-forest/10 rounded-2xl px-6 py-4 border border-forest/20 max-w-sm w-full">
         <p className="text-forest text-xl font-semibold">💬 {obj.prompt}</p>
       </div>
-      <BigBtn onClick={next} color="forest" full>Show me another →</BigBtn>
-      <BackBar onBack={onBack} />
+
+      <div className="flex flex-col gap-3 w-full max-w-sm">
+        <BigBtn onClick={next} color="forest" full>Show me another memory →</BigBtn>
+        <BackBar onBack={handleBack} />
+      </div>
     </div>
   )
 
   return (
     <div className="min-h-screen flex flex-col bg-parchment">
       <CelebrationOverlay key={celebKey} active={celebrating} message={message} />
-      <BackBar onBack={onBack} />
+      <BackBar onBack={handleBack} />
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-6 gap-8 text-center animate-fadeUp">
         <p className="text-bark/50 text-2xl">Do you recognise this?</p>
         <span className="text-[150px] leading-none">{obj.emoji}</span>
@@ -441,7 +685,12 @@ function ReminiscenceGame({ onBack, soundEnabled, recordActivity }: { onBack: ()
           <p className="text-bark/50 text-2xl font-serif italic mt-2">{obj.localName}</p>
         </div>
         <div className="flex flex-col gap-4 w-full max-w-sm">
-          <BigBtn onClick={() => { celebrate(); recordActivity('Remember This'); setPhase('memory') }} color="amber" full>❤️  Yes, I remember this</BigBtn>
+          <BigBtn onClick={() => {
+            if (soundEnabled) playSoundEffect('match')
+            celebrate()
+            recordActivity('Remember This')
+            setPhase('memory')
+          }} color="amber" full>❤️  Yes, I remember this</BigBtn>
           <BigBtn onClick={next} color="white" full>Show me another →</BigBtn>
         </div>
       </div>
@@ -451,65 +700,594 @@ function ReminiscenceGame({ onBack, soundEnabled, recordActivity }: { onBack: ()
 
 // ─── Music game ────────────────────────────────────────────────────────────────
 
-function MusicGame({ onBack, soundEnabled, recordActivity }: { onBack: () => void; soundEnabled: boolean; recordActivity: (n: string) => void }) {
+function extractYoutubeId(input: string): string | null {
+  if (!input) return null
+  const trimmed = input.trim()
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed
+  const match = trimmed.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/)
+  return match ? match[1] : null
+}
+
+function MusicGame({ onBack, soundEnabled, recordActivity, language }: { onBack: () => void; soundEnabled: boolean; recordActivity: (n: string) => void; language: Language }) {
   const [idx, setIdx] = useState(0)
   const [phase, setPhase] = useState<MusicPhase>('intro')
+  const [filter, setFilter] = useState<'lang' | 'popular' | 'angrybirds' | 'all'>('lang')
+  const [showLyricsSheet, setShowLyricsSheet] = useState(false)
+  const [scriptMode, setScriptMode] = useState<'native' | 'roman'>('native')
+  const [isSinging, setIsSinging] = useState(false)
+  const [showYoutube, setShowYoutube] = useState(false)
+  const [customYtModal, setCustomYtModal] = useState(false)
+  const [customYtInput, setCustomYtInput] = useState('')
+  const [customTrack, setCustomTrack] = useState<MusicTrack | null>(null)
+
   const { play, stop } = useMelodyPlayer()
   const { celebrating, message, celebKey, celebrate } = useCelebration(soundEnabled)
-  const track = MUSIC_TRACKS[idx % MUSIC_TRACKS.length]
 
-  const handlePlay = () => { setPhase('playing'); play(track.notes, track.bpm, () => { celebrate(); recordActivity('Music'); setPhase('responded') }) }
-  const handleStop = () => { stop(); celebrate(); recordActivity('Music'); setPhase('responded') }
-  const nextTrack = () => { stop(); setIdx(i => i + 1); setPhase('intro') }
-  useEffect(() => { setPhase('intro'); stop() }, [idx, stop])
+  // Filtered playlist based on active filter
+  const playlist = useMemo(() => {
+    let list = MUSIC_TRACKS
+    if (filter === 'popular') {
+      list = MUSIC_TRACKS.filter(t => t.isPopular)
+    } else if (filter === 'angrybirds') {
+      list = MUSIC_TRACKS.filter(t => t.id.startsWith('angry-birds'))
+    } else if (filter === 'lang') {
+      const myLang = MUSIC_TRACKS.filter(t => t.lang === language)
+      const others = MUSIC_TRACKS.filter(t => t.lang !== language)
+      list = [...myLang, ...others]
+    }
+    return customTrack ? [customTrack, ...list] : list
+  }, [filter, language, customTrack])
+
+  const track = playlist[idx % playlist.length]
+
+  const handlePlay = () => {
+    setShowYoutube(false)
+    setPhase('playing')
+    play(track.notes, track.bpm, () => {
+      celebrate()
+      recordActivity('Music')
+      setPhase('responded')
+      setIsSinging(false)
+      stopSingAlong()
+    })
+  }
+
+  const handleSingAlong = () => {
+    setShowYoutube(false)
+    setIsSinging(true)
+    handlePlay()
+    const lyricsToRead = track.fullLyrics ? track.fullLyrics.join('. ') : track.lyric
+    const speechLang = track.lang === 'english' ? 'en-IN' : track.lang === 'bengali' ? 'bn-IN' : track.lang === 'assamese' ? 'as-IN' : 'hi-IN'
+    speakSingAlong(lyricsToRead, speechLang)
+  }
+
+  const handlePlayYoutube = () => {
+    stop()
+    stopSingAlong()
+    setIsSinging(false)
+    setShowYoutube(true)
+    setPhase('intro')
+    recordActivity('Music')
+  }
+
+  const handleStop = () => {
+    stop()
+    stopSingAlong()
+    setIsSinging(false)
+    celebrate()
+    recordActivity('Music')
+    setPhase('responded')
+  }
+
+  const nextTrack = () => {
+    stop()
+    stopSingAlong()
+    setIsSinging(false)
+    setShowYoutube(false)
+    setIdx(i => i + 1)
+    setPhase('intro')
+  }
+
+  const prevTrack = () => {
+    stop()
+    stopSingAlong()
+    setIsSinging(false)
+    setShowYoutube(false)
+    setIdx(i => (i - 1 + playlist.length) % playlist.length)
+    setPhase('intro')
+  }
+
+  useEffect(() => {
+    setPhase('intro')
+    stop()
+    stopSingAlong()
+    setIsSinging(false)
+    setShowYoutube(false)
+  }, [idx, stop, filter])
+
+  const isCurrentLang = track.lang === language
 
   if (phase === 'responded') return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-amber/10 px-8 py-12 text-center gap-7 animate-fadeUp">
       <span className="text-[110px] leading-none">{track.emoji}</span>
-      <div><p className="text-bark/50 text-xl">{track.region}</p><p className="font-serif text-bark text-4xl font-bold mt-1 leading-tight">{track.title}</p></div>
-      <div className="bg-white rounded-3xl p-6 border border-sand max-w-sm text-left">
-        <p className="text-bark/50 text-lg font-bold uppercase tracking-wide mb-3">{track.instrument}</p>
-        <p className="text-bark text-2xl leading-relaxed">{track.scene}</p>
+      <div>
+        {track.isPopular && (
+          <span className="inline-block bg-amber text-bark text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-2 mr-2">
+            🔥 Popular Hit
+          </span>
+        )}
+        {isCurrentLang && (
+          <span className="inline-block bg-forest/20 text-forest text-sm font-bold px-3.5 py-1 rounded-full border border-forest/30 mb-2">
+            ⭐ In Your Language
+          </span>
+        )}
+        <p className="text-bark/50 text-xl">{track.artist ? `${track.artist} · ${track.region}` : track.region}</p>
+        <p className="font-serif text-bark text-4xl font-bold mt-1 leading-tight">{track.title}</p>
       </div>
-      <div className="bg-forest/10 rounded-3xl px-6 py-5 border border-forest/20 max-w-sm w-full font-serif">
-        <p className="text-bark text-xl leading-relaxed whitespace-pre-line">{track.lyric}</p>
-        <p className="text-bark/50 text-lg mt-2 italic">{track.lyricEng}</p>
+
+      <div className="bg-white rounded-3xl p-6 border border-sand max-w-sm text-left shadow-sm">
+        <p className="text-bark/50 text-lg font-bold uppercase tracking-wide mb-2">{track.instrument}</p>
+        <p className="text-bark text-xl leading-relaxed">{track.scene}</p>
       </div>
-      <BigBtn onClick={nextTrack} color="forest" full>Play the next song →</BigBtn>
-      <BackBar onBack={() => { stop(); onBack() }} />
+
+      <div className="bg-forest/10 rounded-3xl px-6 py-5 border border-forest/20 max-w-sm w-full font-serif text-center">
+        <p className="text-bark text-xl font-semibold leading-relaxed whitespace-pre-line">{track.lyric}</p>
+        {track.romanLyric && (
+          <p className="text-bark/60 text-base mt-2 font-sans italic">{track.romanLyric}</p>
+        )}
+        <p className="text-bark/50 text-sm mt-3 border-t border-forest/20 pt-2">{track.lyricEng}</p>
+      </div>
+
+      <div className="flex flex-col gap-3 w-full max-w-sm">
+        {track.youtubeId && (
+          <button
+            type="button"
+            onClick={handlePlayYoutube}
+            className="w-full py-4 bg-[#E62117] hover:bg-[#CC181E] text-white font-bold text-xl rounded-2xl active:scale-95 shadow-md flex items-center justify-center gap-2"
+          >
+            <span>▶</span> Watch on YouTube
+          </button>
+        )}
+        <button
+          onClick={() => setShowLyricsSheet(true)}
+          className="w-full py-4 bg-white border-2 border-forest text-forest font-bold text-xl rounded-2xl active:scale-95 shadow-sm flex items-center justify-center gap-2"
+        >
+          📜 View Full Sing-Along Lyrics
+        </button>
+        <BigBtn onClick={nextTrack} color="forest" full>Play the next song →</BigBtn>
+      </div>
+      <BackBar onBack={() => { stop(); stopSingAlong(); onBack() }} />
+
+      {/* Full Lyrics Modal */}
+      {showLyricsSheet && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeUp">
+          <div className="bg-white rounded-3xl max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden shadow-2xl border-2 border-sand">
+            <div className="p-6 bg-cream border-b border-sand flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-forest uppercase tracking-wider">Full Song Lyrics</p>
+                <h3 className="font-serif text-2xl font-bold text-bark mt-0.5">{track.title}</h3>
+                {track.artist && <p className="text-bark/60 text-sm">{track.artist}</p>}
+              </div>
+              <button
+                onClick={() => setShowLyricsSheet(false)}
+                className="w-10 h-10 rounded-full bg-sand flex items-center justify-center font-bold text-bark hover:bg-sand/70"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Script Toggle if romanized available */}
+            {track.romanLyric && (
+              <div className="flex bg-sand/30 p-2 gap-2 border-b border-sand px-6">
+                <button
+                  onClick={() => setScriptMode('native')}
+                  className={`flex-1 py-1.5 rounded-lg text-sm font-bold transition-all ${
+                    scriptMode === 'native' ? 'bg-forest text-white' : 'text-bark/60'
+                  }`}
+                >
+                  Original Script
+                </button>
+                <button
+                  onClick={() => setScriptMode('roman')}
+                  className={`flex-1 py-1.5 rounded-lg text-sm font-bold transition-all ${
+                    scriptMode === 'roman' ? 'bg-forest text-white' : 'text-bark/60'
+                  }`}
+                >
+                  Roman English (Sing Along)
+                </button>
+              </div>
+            )}
+
+            <div className="p-6 overflow-auto space-y-4 flex-1">
+              <div className="bg-forest/5 p-5 rounded-2xl border border-forest/15">
+                <p className="font-serif text-bark text-2xl font-medium leading-loose whitespace-pre-line text-center">
+                  {scriptMode === 'roman' && track.romanLyric ? track.romanLyric : (track.fullLyrics ? track.fullLyrics.join('\n\n') : track.lyric)}
+                </p>
+              </div>
+
+              <div className="bg-amber/10 p-4 rounded-xl border border-amber/20">
+                <p className="text-xs font-bold text-bark/60 uppercase mb-1">English Meaning</p>
+                <p className="text-bark/80 text-sm italic">{track.lyricEng}</p>
+              </div>
+            </div>
+
+            <div className="p-4 bg-cream border-t border-sand">
+              <button
+                onClick={() => setShowLyricsSheet(false)}
+                className="w-full py-4 bg-forest text-white font-bold text-lg rounded-xl active:scale-95"
+              >
+                Close Lyrics
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 
   return (
     <div className="min-h-screen flex flex-col bg-parchment">
       <CelebrationOverlay key={celebKey} active={celebrating} message={message} />
-      <BackBar onBack={() => { stop(); onBack() }} />
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-6 gap-8 text-center animate-fadeUp">
-        <span className="text-[110px] leading-none">{track.emoji}</span>
-        <div>
-          <p className="text-bark/50 text-xl">{track.region}</p>
-          <p className="font-serif text-bark text-4xl font-bold mt-1 leading-tight">{track.title}</p>
-          <p className="text-bark/50 text-xl mt-1">{track.instrument}</p>
+      <BackBar onBack={() => { stop(); stopSingAlong(); onBack() }} />
+
+      {/* Category Filter Tabs + Custom Link Button */}
+      <div className="px-5 pt-1 pb-3 flex gap-2 overflow-x-auto items-center justify-start md:justify-center">
+        <button
+          onClick={() => { setFilter('lang'); setIdx(0) }}
+          className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+            filter === 'lang'
+              ? 'bg-forest text-white shadow-sm'
+              : 'bg-white text-bark/70 border border-sand hover:bg-sand'
+          }`}
+        >
+          ⭐ In Your Language
+        </button>
+        <button
+          onClick={() => { setFilter('popular'); setIdx(0) }}
+          className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+            filter === 'popular'
+              ? 'bg-forest text-white shadow-sm'
+              : 'bg-white text-bark/70 border border-sand hover:bg-sand'
+          }`}
+        >
+          🔥 Popular Hits
+        </button>
+        <button
+          onClick={() => { setFilter('angrybirds'); setIdx(0) }}
+          className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+            filter === 'angrybirds'
+              ? 'bg-forest text-white shadow-sm'
+              : 'bg-white text-bark/70 border border-sand hover:bg-sand'
+          }`}
+        >
+          🐦 Angry Birds
+        </button>
+        <button
+          onClick={() => { setFilter('all'); setIdx(0) }}
+          className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+            filter === 'all'
+              ? 'bg-forest text-white shadow-sm'
+              : 'bg-white text-bark/70 border border-sand hover:bg-sand'
+          }`}
+        >
+          🎶 All ({playlist.length})
+        </button>
+        <button
+          onClick={() => setCustomYtModal(true)}
+          className="px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all bg-[#E62117]/10 text-[#E62117] border border-[#E62117]/30 hover:bg-[#E62117]/20 flex items-center gap-1.5"
+        >
+          <span>➕</span> Paste YouTube Link
+        </button>
+      </div>
+
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-4 gap-5 text-center animate-fadeUp">
+        {/* Track counter & tag */}
+        <div className="flex items-center justify-between w-full max-w-xs px-2">
+          <span className="text-bark/40 text-sm font-bold">
+            Song {(idx % playlist.length) + 1} of {playlist.length}
+          </span>
+          <div className="flex gap-1.5">
+            {track.youtubeId && (
+              <span className="bg-[#E62117]/15 text-[#E62117] text-xs font-bold px-2 py-0.5 rounded-full border border-[#E62117]/20">
+                ▶ YouTube
+              </span>
+            )}
+            {track.isPopular && (
+              <span className="bg-amber/30 text-bark text-xs font-bold px-2.5 py-0.5 rounded-full">
+                🔥 Popular
+              </span>
+            )}
+            {isCurrentLang && (
+              <span className="bg-forest/15 text-forest text-xs font-bold px-2.5 py-0.5 rounded-full border border-forest/30">
+                ⭐ Language
+              </span>
+            )}
+          </div>
         </div>
+
+        {/* Media Player: YouTube Video OR Big Emoji */}
+        {showYoutube && track.youtubeId ? (
+          <div className="w-full max-w-sm flex flex-col items-center gap-2">
+            <div className="w-full aspect-video rounded-3xl overflow-hidden shadow-2xl border-4 border-white bg-black">
+              <iframe
+                src={`https://www.youtube-nocookie.com/embed/${track.youtubeId}?autoplay=1&rel=0`}
+                title={track.title}
+                className="w-full h-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+            <div className="flex items-center justify-between w-full px-2">
+              <span className="text-forest text-xs font-bold flex items-center gap-1">
+                <span>🔊</span> Playing original audio
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowYoutube(false)}
+                className="text-xs font-bold px-3 py-1 bg-sand text-bark rounded-full hover:bg-sand/70 active:scale-95"
+              >
+                ✕ Close Video
+              </button>
+            </div>
+          </div>
+        ) : (
+          <span className="text-[95px] leading-none">{track.emoji}</span>
+        )}
+
+        <div>
+          <p className="text-bark/50 text-lg">{track.artist ? `${track.artist} · ${track.region}` : track.region}</p>
+          <p className="font-serif text-bark text-3xl font-bold mt-0.5 leading-tight">{track.title}</p>
+          <p className="text-bark/50 text-base mt-0.5">{track.instrument}</p>
+        </div>
+
         {phase === 'playing' ? (
           <>
-            <div className="flex items-end justify-center gap-2 h-20 px-4">
-              {Array.from({ length: 16 }).map((_, i) => <div key={i} className="wave-bar" style={{ animationDelay: `${i * 0.07}s`, animationDuration: `${0.42 + (i % 5) * 0.14}s` }} />)}
+            <div className="flex items-end justify-center gap-2 h-16 px-4">
+              {Array.from({ length: 16 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="wave-bar"
+                  style={{ animationDelay: `${i * 0.07}s`, animationDuration: `${0.42 + (i % 5) * 0.14}s` }}
+                />
+              ))}
             </div>
-            <p className="text-rose text-2xl font-bold">♪ Playing...</p>
+            <p className="text-rose text-2xl font-bold">
+              {isSinging ? '🎤 Singing Along with You...' : '♪ Playing Melody...'}
+            </p>
+
+            {/* Live Lyric Box while playing */}
+            <div className="bg-forest/10 rounded-3xl p-5 border border-forest/20 max-w-xs font-serif text-center">
+              <p className="text-bark text-2xl font-semibold leading-relaxed whitespace-pre-line">
+                {track.lyric}
+              </p>
+              {track.romanLyric && (
+                <p className="text-bark/60 text-base mt-2 font-sans italic">{track.romanLyric}</p>
+              )}
+            </div>
+
             <BigBtn onClick={handleStop} color="white" full>⏹  Stop</BigBtn>
           </>
         ) : (
           <>
-            <div className="bg-forest/10 rounded-3xl p-6 border border-forest/20 max-w-xs font-serif text-center">
-              <p className="text-bark text-2xl leading-relaxed whitespace-pre-line">{track.lyric}</p>
-              <p className="text-bark/50 text-lg mt-3 italic">{track.lyricEng}</p>
+            {/* Song Lyric Preview Box */}
+            <div className="bg-forest/10 rounded-3xl p-5 border border-forest/20 max-w-xs font-serif text-center relative shadow-sm">
+              <p className="text-bark text-xl font-semibold leading-relaxed whitespace-pre-line">{track.lyric}</p>
+              {track.romanLyric && (
+                <p className="text-bark/60 text-sm mt-2 font-sans italic">{track.romanLyric}</p>
+              )}
+              <p className="text-bark/50 text-xs mt-2.5 border-t border-forest/15 pt-2">{track.lyricEng}</p>
             </div>
-            <BigBtn onClick={handlePlay} color="amber" full>▶  Play this song</BigBtn>
-            <BigBtn onClick={nextTrack} color="white" full>Skip to next song →</BigBtn>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col gap-2.5 w-full max-w-xs">
+              {track.youtubeId && !showYoutube && (
+                <button
+                  type="button"
+                  onClick={handlePlayYoutube}
+                  className="w-full py-3.5 bg-[#E62117] hover:bg-[#CC181E] text-white font-bold text-lg rounded-2xl active:scale-95 shadow-md flex items-center justify-center gap-2 transition-transform"
+                >
+                  <span className="text-xl leading-none">▶</span> Play Original (YouTube)
+                </button>
+              )}
+
+              <BigBtn onClick={handlePlay} color="amber" full>🎵  Play Melody</BigBtn>
+              
+              <button
+                type="button"
+                onClick={handleSingAlong}
+                className="w-full py-3.5 bg-forest text-white font-bold text-lg rounded-2xl active:scale-95 shadow-md flex items-center justify-center gap-2"
+              >
+                🎤 Sing Along (With Vocals)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowLyricsSheet(true)}
+                className="w-full py-3 bg-white border-2 border-forest/40 text-forest font-bold text-base rounded-2xl active:scale-95 shadow-sm"
+              >
+                📜 Read Full Lyrics
+              </button>
+
+              {/* Prev / Next Track */}
+              <div className="flex gap-2 w-full pt-0.5">
+                <button
+                  type="button"
+                  onClick={prevTrack}
+                  className="flex-1 py-2.5 bg-white border border-sand rounded-xl font-bold text-base text-bark active:scale-95 shadow-sm"
+                >
+                  ← Prev
+                </button>
+                <button
+                  type="button"
+                  onClick={nextTrack}
+                  className="flex-1 py-2.5 bg-white border border-sand rounded-xl font-bold text-base text-bark active:scale-95 shadow-sm"
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
           </>
         )}
       </div>
+
+      {/* Full Lyrics Modal */}
+      {showLyricsSheet && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeUp">
+          <div className="bg-white rounded-3xl max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden shadow-2xl border-2 border-sand">
+            <div className="p-6 bg-cream border-b border-sand flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-forest uppercase tracking-wider">Full Song Lyrics</p>
+                <h3 className="font-serif text-2xl font-bold text-bark mt-0.5">{track.title}</h3>
+                {track.artist && <p className="text-bark/60 text-sm">{track.artist}</p>}
+              </div>
+              <button
+                onClick={() => setShowLyricsSheet(false)}
+                className="w-10 h-10 rounded-full bg-sand flex items-center justify-center font-bold text-bark hover:bg-sand/70"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Script Toggle if romanized available */}
+            {track.romanLyric && (
+              <div className="flex bg-sand/30 p-2 gap-2 border-b border-sand px-6">
+                <button
+                  onClick={() => setScriptMode('native')}
+                  className={`flex-1 py-1.5 rounded-lg text-sm font-bold transition-all ${
+                    scriptMode === 'native' ? 'bg-forest text-white' : 'text-bark/60'
+                  }`}
+                >
+                  Original Script
+                </button>
+                <button
+                  onClick={() => setScriptMode('roman')}
+                  className={`flex-1 py-1.5 rounded-lg text-sm font-bold transition-all ${
+                    scriptMode === 'roman' ? 'bg-forest text-white' : 'text-bark/60'
+                  }`}
+                >
+                  Roman English (Sing Along)
+                </button>
+              </div>
+            )}
+
+            <div className="p-6 overflow-auto space-y-4 flex-1">
+              {track.youtubeId && !showYoutube && (
+                <button
+                  type="button"
+                  onClick={() => { setShowLyricsSheet(false); handlePlayYoutube() }}
+                  className="w-full py-3 bg-[#E62117] text-white font-bold text-base rounded-xl active:scale-95 flex items-center justify-center gap-2 shadow-sm"
+                >
+                  ▶ Watch Video While Reading Lyrics
+                </button>
+              )}
+
+              <div className="bg-forest/5 p-5 rounded-2xl border border-forest/15">
+                <p className="font-serif text-bark text-2xl font-medium leading-loose whitespace-pre-line text-center">
+                  {scriptMode === 'roman' && track.romanLyric ? track.romanLyric : (track.fullLyrics ? track.fullLyrics.join('\n\n') : track.lyric)}
+                </p>
+              </div>
+
+              <div className="bg-amber/10 p-4 rounded-xl border border-amber/20">
+                <p className="text-xs font-bold text-bark/60 uppercase mb-1">English Meaning</p>
+                <p className="text-bark/80 text-sm italic">{track.lyricEng}</p>
+              </div>
+            </div>
+
+            <div className="p-4 bg-cream border-t border-sand flex gap-2">
+              <button
+                onClick={() => { setShowLyricsSheet(false); handleSingAlong() }}
+                className="flex-1 py-3.5 bg-forest text-white font-bold text-base rounded-xl active:scale-95 flex items-center justify-center gap-2"
+              >
+                🎤 Sing Along Now
+              </button>
+              <button
+                onClick={() => setShowLyricsSheet(false)}
+                className="px-5 py-3.5 bg-sand text-bark font-bold text-base rounded-xl active:scale-95"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom YouTube Link Modal */}
+      {customYtModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeUp">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border-2 border-sand flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-serif text-2xl font-bold text-bark flex items-center gap-2">
+                <span className="text-[#E62117]">▶</span> Play Any YouTube Song
+              </h3>
+              <button
+                onClick={() => setCustomYtModal(false)}
+                className="w-9 h-9 rounded-full bg-sand flex items-center justify-center font-bold text-bark hover:bg-sand/70"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-bark/70 text-sm leading-relaxed">
+              Caregivers and family members can paste any YouTube song link, prayer, bhajan, or folk music URL to play it directly in the app.
+            </p>
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-bold uppercase text-bark/60 tracking-wider">
+                YouTube URL or Video ID
+              </label>
+              <input
+                type="text"
+                value={customYtInput}
+                onChange={e => setCustomYtInput(e.target.value)}
+                placeholder="e.g. https://www.youtube.com/watch?v=... or ID"
+                className="w-full px-4 py-3.5 border-2 border-sand rounded-xl text-base focus:border-forest outline-none text-bark font-mono"
+              />
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setCustomYtModal(false)}
+                className="flex-1 py-3 bg-sand text-bark font-bold text-base rounded-xl active:scale-95"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const vidId = extractYoutubeId(customYtInput)
+                  if (!vidId) {
+                    alert('Please enter a valid YouTube video URL or ID (e.g. https://www.youtube.com/watch?v=...)')
+                    return
+                  }
+                  const customItem: MusicTrack = {
+                    id: `custom-${Date.now()}`,
+                    emoji: '🎵',
+                    title: 'Caregiver Song Choice',
+                    artist: 'YouTube Video',
+                    region: 'Caregiver Memory Playlist',
+                    instrument: 'Original YouTube Audio',
+                    lyric: 'Playing your personalized song from YouTube.\nSing along with your loved one!',
+                    lyricEng: 'Personal memory song selected for comfort and familiar recall.',
+                    scene: 'Comforting music chosen especially by family to bring smiles and peaceful nostalgia.',
+                    notes: [329.63, 392, 440, 493.88, 523.25, 493.88, 440, 392],
+                    bpm: 80,
+                    youtubeId: vidId
+                  }
+                  setCustomTrack(customItem)
+                  setIdx(0)
+                  setCustomYtModal(false)
+                  setCustomYtInput('')
+                  setShowYoutube(true)
+                  stop()
+                  stopSingAlong()
+                  recordActivity('Music')
+                }}
+                className="flex-1 py-3 bg-forest text-white font-bold text-base rounded-xl active:scale-95 shadow-md flex items-center justify-center gap-1.5"
+              >
+                <span>▶</span> Play Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -899,30 +1677,85 @@ function DiaryGame({ onBack, recordActivity, saveMemory, onViewMemories }: {
 // ─── Orientation game ──────────────────────────────────────────────────────────
 
 function OrientationGame({ onBack, soundEnabled, recordActivity }: { onBack: () => void; soundEnabled: boolean; recordActivity: (n: string) => void }) {
+  const [questions] = useState(() => getDynamicOrientationQuestions())
   const [idx, setIdx] = useState(0)
-  const [chosen, setChosen] = useState<number | null>(null)
+  const [chosen, setChosen] = useState<string | null>(null)
+  const [done, setDone] = useState(false)
   const { celebrating, message, celebKey, celebrate } = useCelebration(soundEnabled)
-  const q = ORI_QUESTIONS[idx % ORI_QUESTIONS.length]
-  const next = () => { setIdx(qi => qi + 1); setChosen(null) }
+
+  const q = questions[idx % questions.length]
+
+  const handleChoose = (opt: string) => {
+    setChosen(opt)
+    const isCorrect = opt === q.correct
+    if (isCorrect) {
+      if (soundEnabled) playSoundEffect('match')
+      celebrate()
+    } else {
+      if (soundEnabled) playSoundEffect('tap')
+    }
+    recordActivity('Orientation')
+  }
+
+  const next = () => {
+    setChosen(null)
+    if (idx + 1 >= questions.length) {
+      if (soundEnabled) playSoundEffect('fanfare')
+      setDone(true)
+    } else {
+      if (soundEnabled) playSoundEffect('tap')
+      setIdx(i => i + 1)
+    }
+  }
+
+  if (done) return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-amber/10 px-8 py-12 text-center gap-7 animate-fadeUp">
+      <div className="text-[110px] leading-none animate-bounce">🌍</div>
+      <p className="font-serif text-bark text-5xl font-bold">Orientation Complete!</p>
+      <p className="text-bark/70 text-2xl max-w-sm leading-relaxed">
+        Staying mindful of time, nature, and home keeps your spirit peaceful and grounded.
+      </p>
+      <div className="flex flex-col gap-4 w-full max-w-xs">
+        <BigBtn onClick={() => { setIdx(0); setChosen(null); setDone(false) }} color="forest" full>Practice again</BigBtn>
+        <BackBar onBack={onBack} />
+      </div>
+    </div>
+  )
+
+  const isChosenCorrect = chosen === q.correct
 
   return (
     <div className="min-h-screen flex flex-col bg-parchment">
       <CelebrationOverlay key={celebKey} active={celebrating} message={message} />
       <BackBar onBack={onBack} />
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-6 gap-8 text-center animate-fadeUp">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-6 gap-6 text-center animate-fadeUp max-w-sm mx-auto w-full">
+        <div className="text-bark/40 text-sm font-bold uppercase tracking-wider">
+          Question {idx + 1} of {questions.length}
+        </div>
         <span className="text-[100px] leading-none">{q.icon}</span>
         <p className="font-serif text-bark text-4xl font-bold leading-tight max-w-xs">{q.q}</p>
         {chosen === null ? (
-          <div className="flex flex-col gap-4 w-full max-w-xs">
-            {q.options.map((opt, i) => <BigBtn key={i} onClick={() => { setChosen(i); celebrate(); recordActivity('Orientation') }} color="white" full>{opt}</BigBtn>)}
+          <div className="flex flex-col gap-3.5 w-full max-w-xs">
+            {q.options.map((opt, i) => (
+              <BigBtn
+                key={i}
+                onClick={() => handleChoose(opt)}
+                color="white"
+                full
+              >
+                {opt}
+              </BigBtn>
+            ))}
           </div>
         ) : (
           <div className="flex flex-col items-center gap-6 animate-fadeUp w-full max-w-xs">
-            <div className="bg-amber/20 rounded-3xl p-7 border border-amber/40 text-center w-full">
-              <p className="text-5xl mb-3">🌟</p>
-              <p className="font-serif text-bark text-3xl font-bold">You said:</p>
-              <p className="text-bark text-2xl mt-2 leading-snug">{q.options[chosen]}</p>
-              <p className="text-bark/60 text-xl mt-3">That is perfectly alright.</p>
+            <div className={`rounded-3xl p-7 border-2 text-center w-full ${isChosenCorrect ? 'bg-amber/20 border-amber/50' : 'bg-sand/30 border-sand'}`}>
+              <p className="text-5xl mb-3">{isChosenCorrect ? '🌟' : '💛'}</p>
+              <p className="font-serif text-bark text-3xl font-bold">
+                {isChosenCorrect ? 'Wonderful!' : 'You said:'}
+              </p>
+              <p className="text-bark text-2xl mt-1 leading-snug font-medium">"{chosen}"</p>
+              <p className="text-bark/75 text-xl mt-3 leading-relaxed">{q.feedback}</p>
             </div>
             <BigBtn onClick={next} color="forest" full>Next question →</BigBtn>
           </div>
@@ -937,14 +1770,16 @@ function OrientationGame({ onBack, soundEnabled, recordActivity }: { onBack: () 
 type Card = { id: string; pairId: string; emoji: string; name: string; state: 'hidden' | 'revealed' | 'matched' }
 
 function MemoryPairsGame({ onBack, soundEnabled, recordActivity }: { onBack: () => void; soundEnabled: boolean; recordActivity: (n: string) => void }) {
-  const [level, setLevel] = useState<2 | 3>(2) // 2 pairs = 4 cards, 3 pairs = 6 cards
+  const [level, setLevel] = useState<2 | 3 | 4>(2) // 2 pairs (4 cards), 3 pairs (6 cards), 4 pairs (8 cards)
   const [cards, setCards] = useState<Card[]>(() => buildCards(2))
   const [firstId, setFirstId] = useState<string | null>(null)
   const [locked, setLocked] = useState(false)
   const [praise, setPraise] = useState(false)
+  const [moves, setMoves] = useState(0)
+  const [peeking, setPeeking] = useState(false)
   const { celebrating, message, celebKey, celebrate } = useCelebration(soundEnabled)
 
-  function buildCards(pairs: 2 | 3): Card[] {
+  function buildCards(pairs: 2 | 3 | 4): Card[] {
     return shuffled(
       shuffled(PAIR_CARDS).slice(0, pairs).flatMap(p => [
         { id: `${p.pairId}-1`, pairId: p.pairId, emoji: p.emoji, name: p.name, state: 'hidden' as const },
@@ -954,87 +1789,155 @@ function MemoryPairsGame({ onBack, soundEnabled, recordActivity }: { onBack: () 
   }
 
   const tap = (card: Card) => {
-    if (locked || card.state !== 'hidden') return
+    if (locked || peeking || card.state !== 'hidden') return
 
+    if (soundEnabled) playSoundEffect('flip')
     const revealed = cards.map(c => c.id === card.id ? { ...c, state: 'revealed' as const } : c)
     setCards(revealed)
 
-    if (!firstId) { setFirstId(card.id); return }
+    if (!firstId) {
+      setFirstId(card.id)
+      return
+    }
 
+    setMoves(m => m + 1)
     setLocked(true)
     const first = revealed.find(c => c.id === firstId)!
 
     setTimeout(() => {
       if (first.pairId === card.pairId) {
+        if (soundEnabled) playSoundEffect('match')
         const next = revealed.map(c => c.id === firstId || c.id === card.id ? { ...c, state: 'matched' as const } : c)
         setCards(next)
         celebrate()
         recordActivity('Memory Pairs')
         if (next.every(c => c.state === 'matched')) {
-          setTimeout(() => setPraise(true), 1950)
+          if (soundEnabled) playSoundEffect('fanfare')
+          setTimeout(() => setPraise(true), 1200)
         }
       } else {
         setCards(cs => cs.map(c => c.state === 'revealed' ? { ...c, state: 'hidden' as const } : c))
       }
       setFirstId(null)
       setLocked(false)
-    }, 1600)
+    }, 1200)
   }
 
-  const restart = (nextLevel?: 2 | 3) => {
+  const handlePeek = () => {
+    if (locked || peeking) return
+    if (soundEnabled) playSoundEffect('hint')
+    setPeeking(true)
+    setTimeout(() => {
+      setPeeking(false)
+    }, 2200)
+  }
+
+  const restart = (nextLevel?: 2 | 3 | 4) => {
     const l = nextLevel ?? level
-    setLevel(l); setCards(buildCards(l)); setFirstId(null); setLocked(false); setPraise(false)
+    setLevel(l)
+    setCards(buildCards(l))
+    setFirstId(null)
+    setLocked(false)
+    setPraise(false)
+    setMoves(0)
+    setPeeking(false)
   }
 
   if (praise) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-amber/10 px-8 py-12 text-center gap-7 animate-fadeUp">
       <div className="text-[120px] leading-none animate-bounce">🎉</div>
-      <p className="font-serif text-bark text-5xl font-bold">All matched!</p>
-      <p className="text-bark/70 text-2xl">Your memory is working beautifully.</p>
+      <p className="font-serif text-bark text-5xl font-bold">All pairs found!</p>
+      <p className="text-bark/70 text-2xl">
+        Completed in <strong>{moves} tries</strong>. Your memory is shining today!
+      </p>
       <div className="flex flex-col gap-4 w-full max-w-xs">
-        {level === 2 && <BigBtn onClick={() => restart(3)} color="forest" full>Try 3 pairs (harder) →</BigBtn>}
+        {level === 2 && <BigBtn onClick={() => restart(3)} color="forest" full>Try 3 pairs (Balanced) →</BigBtn>}
+        {level === 3 && <BigBtn onClick={() => restart(4)} color="forest" full>Try 4 pairs (Challenge) →</BigBtn>}
         <BigBtn onClick={() => restart()} color="amber" full>Play again</BigBtn>
         <BackBar onBack={onBack} />
       </div>
     </div>
   )
 
-  const cols = level === 2 ? 'grid-cols-2' : 'grid-cols-3'
+  const cols = level === 2 ? 'grid-cols-2' : level === 3 ? 'grid-cols-3' : 'grid-cols-4'
 
   return (
     <div className="min-h-screen flex flex-col bg-parchment">
       <CelebrationOverlay key={celebKey} active={celebrating} message={message} />
       <BackBar onBack={onBack} />
-      <div className="flex-1 flex flex-col items-center justify-center px-5 py-4 gap-6 animate-fadeUp">
+      <div className="flex-1 flex flex-col items-center justify-center px-4 py-4 gap-5 animate-fadeUp max-w-md mx-auto w-full">
         <div className="text-center">
           <p className="font-serif text-bark text-4xl font-bold">Memory Pairs</p>
-          <p className="text-bark/50 text-2xl mt-1">Tap two cards — find the matching pair</p>
+          <p className="text-bark/50 text-xl mt-1">Tap two cards to find matching treasures</p>
         </div>
-        <div className={`grid ${cols} gap-4 w-full max-w-sm`}>
-          {cards.map(card => (
-            <button
-              key={card.id}
-              onClick={() => tap(card)}
-              disabled={card.state !== 'hidden' || locked}
-              className={`rounded-3xl flex flex-col items-center justify-center gap-2 transition-all active:scale-95 min-h-[120px] border-2 ${
-                card.state === 'matched'   ? 'bg-forest/10 border-forest/30 opacity-70' :
-                card.state === 'revealed'  ? 'bg-amber/20 border-amber' :
-                'bg-white border-sand hover:border-amber/50'
-              }`}
-            >
-              {card.state === 'hidden' ? (
-                <span className="text-4xl">🌿</span>
-              ) : (
-                <>
-                  <span className="text-5xl leading-none">{card.emoji}</span>
-                  <span className="text-bark text-lg font-bold">{card.name}</span>
-                  {card.state === 'matched' && <span className="text-forest text-xl">✓</span>}
-                </>
-              )}
-            </button>
-          ))}
+
+        {/* Level Selector Tabs */}
+        <div className="flex bg-sand/30 p-1.5 rounded-2xl gap-2 w-full max-w-xs justify-center border border-sand">
+          <button
+            onClick={() => restart(2)}
+            className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all ${level === 2 ? 'bg-forest text-white shadow-sm' : 'text-bark/60'}`}
+          >
+            2 Pairs
+          </button>
+          <button
+            onClick={() => restart(3)}
+            className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all ${level === 3 ? 'bg-forest text-white shadow-sm' : 'text-bark/60'}`}
+          >
+            3 Pairs
+          </button>
+          <button
+            onClick={() => restart(4)}
+            className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all ${level === 4 ? 'bg-forest text-white shadow-sm' : 'text-bark/60'}`}
+          >
+            4 Pairs
+          </button>
         </div>
-        <p className="text-bark/40 text-xl">{cards.filter(c => c.state === 'matched').length / 2} / {level} pairs found</p>
+
+        {/* Status + Peek Hint */}
+        <div className="flex items-center justify-between w-full px-2 text-bark/60 text-sm font-semibold">
+          <span>{cards.filter(c => c.state === 'matched').length / 2} of {level} pairs</span>
+          <span>Moves: {moves}</span>
+          <button
+            onClick={handlePeek}
+            disabled={peeking || locked}
+            className={`px-3 py-1 rounded-full text-xs font-bold border transition-all ${
+              peeking ? 'bg-amber text-bark border-amber animate-pulse' : 'bg-white text-bark/70 border-sand hover:border-amber/50'
+            }`}
+          >
+            {peeking ? '👀 Peeking...' : '💡 Peek Cards'}
+          </button>
+        </div>
+
+        {/* Cards Grid */}
+        <div className={`grid ${cols} gap-3.5 w-full`}>
+          {cards.map(card => {
+            const isShown = card.state === 'revealed' || card.state === 'matched' || peeking
+            return (
+              <button
+                key={card.id}
+                onClick={() => tap(card)}
+                disabled={card.state !== 'hidden' || locked || peeking}
+                className={`rounded-2xl flex flex-col items-center justify-center p-3 transition-all active:scale-95 min-h-[110px] border-2 shadow-sm ${
+                  card.state === 'matched'
+                    ? 'bg-forest/10 border-forest/40 opacity-75'
+                    : isShown
+                    ? 'bg-amber/20 border-amber shadow-md'
+                    : 'bg-white border-sand hover:border-amber/40'
+                }`}
+              >
+                {!isShown ? (
+                  <span className="text-3xl">🌿</span>
+                ) : (
+                  <>
+                    <span className="text-4xl leading-none">{card.emoji}</span>
+                    <span className="text-bark text-sm font-bold mt-1 text-center truncate max-w-full">{card.name}</span>
+                    {card.state === 'matched' && <span className="text-forest text-xs font-bold mt-0.5">✓ Matched</span>}
+                  </>
+                )}
+              </button>
+            )
+          })}
+        </div>
       </div>
     </div>
   )
@@ -1047,6 +1950,8 @@ function CategorySortGame({ onBack, soundEnabled, recordActivity }: { onBack: ()
   const [idx, setIdx] = useState(0)
   const [feedback, setFeedback] = useState<{ correct: boolean; hint: string } | null>(null)
   const [score, setScore] = useState(0)
+  const [streak, setStreak] = useState(0)
+  const [showHint, setShowHint] = useState(false)
   const [done, setDone] = useState(false)
   const { celebrating, message, celebKey, celebrate } = useCelebration(soundEnabled)
 
@@ -1054,23 +1959,41 @@ function CategorySortGame({ onBack, soundEnabled, recordActivity }: { onBack: ()
 
   const pick = (bin: 0 | 1) => {
     const correct = bin === item.bin
-    if (correct) { setScore(s => s + 1); celebrate() }
+    if (correct) {
+      setScore(s => s + 1)
+      setStreak(s => s + 1)
+      if (soundEnabled) playSoundEffect('match')
+      celebrate()
+    } else {
+      setStreak(0)
+      if (soundEnabled) playSoundEffect('tap')
+    }
     recordActivity('Kitchen or Field?')
     setFeedback({ correct, hint: item.hint })
+    setShowHint(false)
   }
 
   const next = () => {
     setFeedback(null)
-    if (idx + 1 >= items.length) { setDone(true) } else { setIdx(i => i + 1) }
+    setShowHint(false)
+    if (idx + 1 >= items.length) {
+      if (soundEnabled) playSoundEffect('fanfare')
+      setDone(true)
+    } else {
+      if (soundEnabled) playSoundEffect('tap')
+      setIdx(i => i + 1)
+    }
   }
 
   if (done) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-amber/10 px-8 py-12 text-center gap-7 animate-fadeUp">
       <div className="text-[120px] leading-none animate-bounce">🌾</div>
-      <p className="font-serif text-bark text-5xl font-bold">All done!</p>
-      <p className="text-bark/70 text-2xl">You sorted <strong>{score} out of {items.length}</strong> correctly.</p>
-      <p className="text-bark/50 text-xl">Every answer helps your mind stay sharp.</p>
-      <BigBtn onClick={() => { setIdx(0); setScore(0); setDone(false); setFeedback(null) }} color="forest" full>Play again</BigBtn>
+      <p className="font-serif text-bark text-5xl font-bold">Sorting Master!</p>
+      <p className="text-bark/70 text-2xl">
+        You sorted <strong>{score} out of {items.length}</strong> items correctly.
+      </p>
+      <p className="text-bark/50 text-xl">Every simple exercise keeps your thoughts clear and active.</p>
+      <BigBtn onClick={() => { setIdx(0); setScore(0); setStreak(0); setDone(false); setFeedback(null) }} color="forest" full>Play again</BigBtn>
       <BackBar onBack={onBack} />
     </div>
   )
@@ -1079,13 +2002,20 @@ function CategorySortGame({ onBack, soundEnabled, recordActivity }: { onBack: ()
     <div className="min-h-screen flex flex-col bg-parchment">
       <CelebrationOverlay key={celebKey} active={celebrating} message={message} />
       <BackBar onBack={onBack} />
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-6 gap-7 text-center animate-fadeUp">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-6 gap-6 text-center animate-fadeUp max-w-md mx-auto w-full">
         <div>
           <p className="font-serif text-bark text-4xl font-bold">Kitchen or Field?</p>
-          <p className="text-bark/50 text-xl mt-1">Question {idx + 1} of {items.length}</p>
+          <div className="flex items-center justify-center gap-3 mt-1">
+            <span className="text-bark/50 text-sm font-semibold">Item {idx + 1} of {items.length}</span>
+            {streak >= 2 && (
+              <span className="bg-amber text-bark text-xs font-bold px-2.5 py-0.5 rounded-full animate-bounce">
+                🔥 {streak} in a row!
+              </span>
+            )}
+          </div>
         </div>
 
-        <span className="text-[130px] leading-none">{item.emoji}</span>
+        <span className="text-[120px] leading-none drop-shadow-sm">{item.emoji}</span>
         <div>
           <p className="font-serif text-bark text-5xl font-bold">{item.name}</p>
           <p className="text-bark/50 text-2xl font-serif italic mt-1">{item.localName}</p>
@@ -1093,11 +2023,23 @@ function CategorySortGame({ onBack, soundEnabled, recordActivity }: { onBack: ()
 
         {!feedback ? (
           <>
-            <p className="text-bark text-2xl">Where does this belong?</p>
+            <p className="text-bark text-2xl font-medium">Where does this belong?</p>
             <div className="grid grid-cols-2 gap-4 w-full max-w-xs">
               <BigBtn onClick={() => pick(0)} color="terracotta" full>🍳 Kitchen</BigBtn>
               <BigBtn onClick={() => pick(1)} color="forest" full>🌾 Field</BigBtn>
             </div>
+            {!showHint ? (
+              <button
+                onClick={() => { setShowHint(true); if (soundEnabled) playSoundEffect('hint') }}
+                className="text-bark/50 text-sm font-semibold hover:text-bark underline decoration-dotted"
+              >
+                💡 Need a gentle hint?
+              </button>
+            ) : (
+              <div className="bg-sand/40 border border-sand rounded-2xl p-4 text-bark/70 text-sm animate-fadeUp">
+                💡 {item.hint}
+              </div>
+            )}
           </>
         ) : (
           <div className="animate-fadeUp flex flex-col items-center gap-5 w-full max-w-sm">
@@ -1106,7 +2048,7 @@ function CategorySortGame({ onBack, soundEnabled, recordActivity }: { onBack: ()
               <p className="font-serif text-bark text-2xl font-bold">{feedback.correct ? 'That is right!' : 'Good try!'}</p>
               <p className="text-bark/70 text-xl mt-2 leading-relaxed">{feedback.hint}</p>
             </div>
-            <BigBtn onClick={next} color="forest" full>Next →</BigBtn>
+            <BigBtn onClick={next} color="forest" full>Next item →</BigBtn>
           </div>
         )}
       </div>
@@ -1120,25 +2062,35 @@ function PatternGame({ onBack, soundEnabled, recordActivity }: { onBack: () => v
   const [rounds] = useState(() => shuffled(PATTERN_ROUNDS))
   const [idx, setIdx] = useState(0)
   const [chosen, setChosen] = useState<string | null>(null)
+  const [showHint, setShowHint] = useState(false)
+  const [streak, setStreak] = useState(0)
   const { celebrating, message, celebKey, celebrate } = useCelebration(soundEnabled)
   const round = rounds[idx % rounds.length]
-  const [choices] = useState(() => Math.random() > 0.5
-    ? [round.answer, round.wrong]
-    : [round.wrong, round.answer])
 
-  const [currentChoices, setCurrentChoices] = useState(choices)
+  const [currentChoices, setCurrentChoices] = useState(() =>
+    Math.random() > 0.5 ? [round.answer, round.wrong] : [round.wrong, round.answer]
+  )
 
   const pick = (val: string) => {
     setChosen(val)
-    if (val === round.answer) celebrate()
+    if (val === round.answer) {
+      setStreak(s => s + 1)
+      if (soundEnabled) playSoundEffect('match')
+      celebrate()
+    } else {
+      setStreak(0)
+      if (soundEnabled) playSoundEffect('tap')
+    }
     recordActivity('Pattern Game')
   }
 
   const next = () => {
     setIdx(i => i + 1)
     setChosen(null)
-    const next = rounds[(idx + 1) % rounds.length]
-    setCurrentChoices(Math.random() > 0.5 ? [next.answer, next.wrong] : [next.wrong, next.answer])
+    setShowHint(false)
+    if (soundEnabled) playSoundEffect('tap')
+    const nextRound = rounds[(idx + 1) % rounds.length]
+    setCurrentChoices(Math.random() > 0.5 ? [nextRound.answer, nextRound.wrong] : [nextRound.wrong, nextRound.answer])
   }
 
   const correct = chosen === round.answer
@@ -1147,41 +2099,68 @@ function PatternGame({ onBack, soundEnabled, recordActivity }: { onBack: () => v
     <div className="min-h-screen flex flex-col bg-parchment">
       <CelebrationOverlay key={celebKey} active={celebrating} message={message} />
       <BackBar onBack={onBack} />
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-6 gap-8 text-center animate-fadeUp">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-6 gap-7 text-center animate-fadeUp max-w-md mx-auto w-full">
         <div>
           <p className="font-serif text-bark text-4xl font-bold">What Comes Next?</p>
-          <p className="text-bark/50 text-xl mt-1">Complete the pattern</p>
+          <div className="flex items-center justify-center gap-2 mt-1">
+            <span className="text-bark/50 text-sm font-semibold">Pattern {(idx % rounds.length) + 1} of {rounds.length}</span>
+            {streak >= 2 && (
+              <span className="bg-amber text-bark text-xs font-bold px-2 py-0.5 rounded-full">
+                🔥 {streak} Streak
+              </span>
+            )}
+          </div>
         </div>
 
-        {/* Pattern row */}
-        <div className="flex items-center justify-center gap-3">
+        {/* Pattern sequence row */}
+        <div className="flex items-center justify-center gap-2 flex-wrap">
           {round.seq.map((emoji, i) => (
-            <div key={i} className="w-20 h-20 rounded-2xl bg-white border-2 border-sand flex items-center justify-center text-4xl shadow-sm">
+            <div key={i} className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white border-2 border-sand flex items-center justify-center text-3xl sm:text-4xl shadow-sm">
               {emoji}
             </div>
           ))}
-          <div className="w-20 h-20 rounded-2xl border-2 border-dashed border-amber flex items-center justify-center text-4xl bg-amber/5">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-2 border-dashed border-amber flex items-center justify-center text-3xl sm:text-4xl bg-amber/10 animate-pulse font-bold text-bark">
             {chosen ?? '?'}
           </div>
         </div>
 
         {!chosen ? (
           <>
-            <p className="text-bark text-2xl">Which one comes next?</p>
-            <div className="grid grid-cols-2 gap-5 w-full max-w-xs">
+            <p className="text-bark text-2xl font-medium">Which one comes next?</p>
+            <div className="grid grid-cols-2 gap-4 w-full max-w-xs">
               {currentChoices.map(opt => (
-                <button key={opt} onClick={() => pick(opt)}
-                  className="flex items-center justify-center rounded-3xl bg-white border-2 border-sand hover:border-amber active:scale-95 transition-all h-28 text-6xl shadow-sm"
-                >{opt}</button>
+                <button
+                  key={opt}
+                  onClick={() => pick(opt)}
+                  className="flex items-center justify-center rounded-3xl bg-white border-2 border-sand hover:border-amber active:scale-95 transition-all h-28 text-6xl shadow-sm hover:shadow-md"
+                >
+                  {opt}
+                </button>
               ))}
             </div>
+            {!showHint ? (
+              <button
+                onClick={() => { setShowHint(true); if (soundEnabled) playSoundEffect('hint') }}
+                className="text-bark/50 text-sm font-semibold hover:text-bark underline decoration-dotted mt-1"
+              >
+                💡 Need a clue?
+              </button>
+            ) : (
+              <div className="bg-sand/40 border border-sand rounded-2xl p-4 text-bark/75 text-sm animate-fadeUp">
+                💡 {round.hint}
+              </div>
+            )}
           </>
         ) : (
           <div className="animate-fadeUp flex flex-col items-center gap-5 w-full max-w-sm">
             <div className={`rounded-3xl p-6 border-2 w-full text-center ${correct ? 'bg-amber/20 border-amber' : 'bg-rose/10 border-rose/30'}`}>
               <p className="text-4xl mb-2">{correct ? '🌟' : '💛'}</p>
               <p className="font-serif text-bark text-2xl font-bold">{correct ? 'Exactly right!' : 'Good try!'}</p>
-              {!correct && <p className="text-bark/70 text-xl mt-2">The pattern continues with <strong>{round.answer}</strong></p>}
+              {!correct && (
+                <p className="text-bark/70 text-xl mt-2">
+                  The pattern continues with <strong>{round.answer}</strong>
+                </p>
+              )}
             </div>
             <BigBtn onClick={next} color="forest" full>Next pattern →</BigBtn>
           </div>
@@ -1197,21 +2176,33 @@ function SequenceGame({ onBack, soundEnabled, recordActivity }: { onBack: () => 
   const [tasks] = useState(() => shuffled(SEQUENCE_TASKS))
   const [taskIdx, setTaskIdx] = useState(0)
   const task = tasks[taskIdx % tasks.length]
-  const [shuffledSteps] = useState(() => shuffled(task.steps.map((s, i) => ({ ...s, order: i }))))
-  const [order, setOrder] = useState<number[]>([]) // indices in shuffledSteps, in the order the user taps them
+  const [shuffledSteps, setShuffledSteps] = useState(() => shuffled(task.steps.map((s, i) => ({ ...s, order: i }))))
+  const [order, setOrder] = useState<number[]>([]) // indices in shuffledSteps, in user selection order
   const [phase, setPhase] = useState<'placing' | 'result'>('placing')
   const { celebrating, message, celebKey, celebrate } = useCelebration(soundEnabled)
 
   const tap = (i: number) => {
     if (phase !== 'placing' || order.includes(i)) return
+    if (soundEnabled) playSoundEffect('tap')
     const next = [...order, i]
     setOrder(next)
     if (next.length === task.steps.length) {
       const isCorrect = next.every((stepIdx, pos) => shuffledSteps[stepIdx].order === pos)
-      if (isCorrect) celebrate()
+      if (isCorrect) {
+        if (soundEnabled) playSoundEffect('fanfare')
+        celebrate()
+      } else {
+        if (soundEnabled) playSoundEffect('undo')
+      }
       recordActivity('Sequence Game')
       setPhase('result')
     }
+  }
+
+  const undoLastStep = () => {
+    if (order.length === 0 || phase !== 'placing') return
+    if (soundEnabled) playSoundEffect('undo')
+    setOrder(order.slice(0, -1))
   }
 
   const correct = phase === 'result' && (() => {
@@ -1221,69 +2212,98 @@ function SequenceGame({ onBack, soundEnabled, recordActivity }: { onBack: () => 
     return true
   })()
 
-  const reset = () => { setOrder([]); setPhase('placing') }
-  const nextTask = () => {
-    setTaskIdx(i => i + 1)
+  const reset = () => {
     setOrder([])
     setPhase('placing')
+  }
+
+  const nextTask = () => {
+    const nextIdx = (taskIdx + 1) % tasks.length
+    setTaskIdx(nextIdx)
+    setShuffledSteps(shuffled(tasks[nextIdx].steps.map((s, i) => ({ ...s, order: i }))))
+    setOrder([])
+    setPhase('placing')
+    if (soundEnabled) playSoundEffect('tap')
   }
 
   return (
     <div className="min-h-screen flex flex-col bg-parchment">
       <CelebrationOverlay key={celebKey} active={celebrating} message={message} />
       <BackBar onBack={onBack} />
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-6 gap-6 text-center animate-fadeUp">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-6 gap-5 text-center animate-fadeUp max-w-md mx-auto w-full">
         <span className="text-[90px] leading-none">{task.emoji}</span>
         <div>
           <p className="font-serif text-bark text-4xl font-bold leading-tight">{task.title}</p>
-          <p className="text-bark/50 text-xl mt-2">
-            {phase === 'placing' ? `Tap the steps in order: 1st, 2nd, 3rd` : correct ? 'Perfect order!' : "Let's try again!"}
+          <p className="text-bark/60 text-lg mt-2 font-medium">
+            {phase === 'placing'
+              ? `Tap step ${order.length + 1} of ${task.steps.length}:`
+              : correct
+              ? 'Perfect sequence!'
+              : "Let's review together!"}
           </p>
         </div>
 
         {/* Step cards */}
-        <div className="flex flex-col gap-3 w-full max-w-sm">
+        <div className="flex flex-col gap-3 w-full">
           {shuffledSteps.map((step, i) => {
             const tapPos = order.indexOf(i)
             const tapped = tapPos !== -1
             return (
-              <button key={i} onClick={() => tap(i)} disabled={tapped || phase === 'result'}
-                className={`flex items-center gap-4 p-5 rounded-2xl border-2 text-left transition-all active:scale-98 min-h-[80px] ${
-                  phase === 'result' && correct && tapped ? 'bg-forest/10 border-forest' :
-                  phase === 'result' && !correct && tapped ? 'bg-rose/10 border-rose/30' :
-                  tapped ? 'bg-amber/20 border-amber' :
-                  'bg-white border-sand hover:border-amber/50'
+              <button
+                key={i}
+                onClick={() => tap(i)}
+                disabled={tapped || phase === 'result'}
+                className={`flex items-center gap-4 p-4 rounded-2xl border-2 text-left transition-all active:scale-98 min-h-[75px] shadow-sm ${
+                  phase === 'result' && correct && tapped
+                    ? 'bg-forest/10 border-forest'
+                    : phase === 'result' && !correct && tapped
+                    ? 'bg-rose/10 border-rose/30'
+                    : tapped
+                    ? 'bg-amber/20 border-amber shadow-md'
+                    : 'bg-white border-sand hover:border-amber/50'
                 }`}
               >
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl font-bold shrink-0 ${
-                  tapped ? 'bg-amber text-bark' : 'bg-sand text-bark/40'
-                }`}>
-                  {tapped ? tapPos + 1 : '?'}
+                <div
+                  className={`w-11 h-11 rounded-full flex items-center justify-center text-xl font-bold shrink-0 shadow-sm ${
+                    tapped ? 'bg-amber text-bark' : 'bg-sand/60 text-bark/40'
+                  }`}
+                >
+                  {tapped ? tapPos + 1 : '—'}
                 </div>
-                <span className="text-4xl leading-none">{step.emoji}</span>
-                <span className="text-bark text-xl font-semibold leading-tight">{step.text}</span>
+                <span className="text-3xl leading-none">{step.emoji}</span>
+                <span className="text-bark text-lg font-semibold leading-tight flex-1">{step.text}</span>
               </button>
             )
           })}
         </div>
 
+        {/* Undo Step button */}
+        {phase === 'placing' && order.length > 0 && (
+          <button
+            onClick={undoLastStep}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold text-bark/60 bg-sand/40 hover:bg-sand border border-sand transition-all active:scale-95"
+          >
+            <span>↩</span> Undo Last Step
+          </button>
+        )}
+
         {phase === 'result' && (
-          <div className="animate-fadeUp flex flex-col items-center gap-4 w-full max-w-sm">
+          <div className="animate-fadeUp flex flex-col items-center gap-4 w-full">
             {correct ? (
               <>
-                <div className="bg-amber/20 rounded-3xl p-5 border border-amber/40 w-full">
+                <div className="bg-amber/20 rounded-3xl p-5 border border-amber/40 w-full text-center">
                   <p className="text-4xl mb-1">🌟</p>
                   <p className="font-serif text-bark text-2xl font-bold">Perfect order!</p>
-                  <p className="text-bark/60 text-xl mt-1">Your memory of this task is wonderful.</p>
+                  <p className="text-bark/70 text-lg mt-1">Your understanding of this daily rhythm is wonderful.</p>
                 </div>
-                <BigBtn onClick={nextTask} color="forest" full>Try the next task →</BigBtn>
+                <BigBtn onClick={nextTask} color="forest" full>Try next daily task →</BigBtn>
               </>
             ) : (
               <>
-                <div className="bg-amber/10 rounded-3xl p-5 border border-amber/30 w-full">
+                <div className="bg-amber/10 rounded-3xl p-5 border border-amber/30 w-full text-center">
                   <p className="text-4xl mb-1">💛</p>
-                  <p className="font-serif text-bark text-2xl font-bold">Good try!</p>
-                  <p className="text-bark/60 text-xl mt-1">Let us try once more together.</p>
+                  <p className="font-serif text-bark text-2xl font-bold">Good effort!</p>
+                  <p className="text-bark/70 text-lg mt-1">Practice makes everything feel familiar and easy.</p>
                 </div>
                 <BigBtn onClick={reset} color="amber" full>Try again</BigBtn>
               </>
@@ -1393,7 +2413,7 @@ export default function PatientView({ language, onChangeLanguage, onBack, userNa
     />
   )
   if (screen === 'reminiscence') return <ReminiscenceGame onBack={() => setScreen('home')} soundEnabled={soundEnabled} recordActivity={recordActivity} />
-  if (screen === 'music')        return <MusicGame        onBack={() => setScreen('home')} soundEnabled={soundEnabled} recordActivity={recordActivity} />
+  if (screen === 'music')        return <MusicGame        onBack={() => setScreen('home')} soundEnabled={soundEnabled} recordActivity={recordActivity} language={language} />
   if (screen === 'diary')        return <DiaryGame        onBack={() => setScreen('home')} recordActivity={recordActivity} saveMemory={saveMemory} onViewMemories={() => setScreen('memories')} />
   if (screen === 'memories')     return <SavedMemoriesView memories={memories} getAudioUrl={getAudioUrl} deleteMemory={deleteMemory} onBack={() => setScreen('home')} onGoToDiary={() => setScreen('diary')} />
   if (screen === 'orientation')  return <OrientationGame  onBack={() => setScreen('home')} soundEnabled={soundEnabled} recordActivity={recordActivity} />

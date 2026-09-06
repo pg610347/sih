@@ -39,7 +39,7 @@ export default function LanguageSelectView({ current, onSelect, onContinue, comp
           <div className="relative z-10">
             <div className="flex items-center justify-center gap-2 mb-6">
               <span className="text-2xl">🪔</span>
-              <span className="text-amber text-xs font-bold tracking-[0.25em] uppercase">NER Dementia Care</span>
+              <span className="text-amber text-xs font-bold tracking-[0.25em] uppercase">Smaran · Dementia Care</span>
             </div>
             <h1 className="font-serif text-parchment text-4xl font-bold leading-tight">
               Choose your language

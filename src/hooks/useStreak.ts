@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 
-const STORAGE_KEY = 'nercare_streak_v1'
+const STORAGE_KEY = 'smaran_streak_v1'
 
 interface StreakData {
   streak: number
@@ -23,10 +23,10 @@ const EMPTY: StreakData = {
 }
 
 export const MILESTONES = [
-  { days: 3,  emoji: '🌱', label: "You're building a lovely routine!" },
-  { days: 7,  emoji: '🌿', label: 'One week of memory moments!' },
-  { days: 14, emoji: '🌳', label: 'Wonderful consistency!' },
-  { days: 30, emoji: '🌸', label: 'A month of memory moments!' },
+  { days: 3,  emoji: '🌱', label: 'Great start! 3 days in a row' },
+  { days: 7,  emoji: '🌿', label: 'A full week! Outstanding!' },
+  { days: 14, emoji: '🌳', label: 'Two weeks of wonderful effort!' },
+  { days: 30, emoji: '🌸', label: 'One month! Simply amazing!' },
   { days: 60, emoji: '⭐', label: 'What a wonderful journey!' },
 ]
 
@@ -53,7 +53,7 @@ function yesterdayISO() {
 
 function loadData(): StreakData {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('nercare_streak_v1')
     return raw ? { ...EMPTY, ...JSON.parse(raw) } : EMPTY
   } catch {
     return EMPTY

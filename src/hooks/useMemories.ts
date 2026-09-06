@@ -11,7 +11,7 @@ export interface SavedMemory {
   hasAudio: boolean
 }
 
-const META_KEY = 'nercare_memories_v1'
+const META_KEY = 'smaran_memories_v1'
 const DB_NAME = 'nercare-audio'
 const STORE = 'blobs'
 const DB_VER = 1
@@ -64,7 +64,10 @@ async function dbDelete(id: string): Promise<void> {
 // ─── Metadata (localStorage) ─────────────────────────────────────────────────
 
 function loadMeta(): SavedMemory[] {
-  try { return JSON.parse(localStorage.getItem(META_KEY) ?? '[]') } catch { return [] }
+  try {
+    const raw = localStorage.getItem(META_KEY) || localStorage.getItem('nercare_memories_v1')
+    return raw ? JSON.parse(raw) : []
+  } catch { return [] }
 }
 
 function persistMeta(list: SavedMemory[]) {

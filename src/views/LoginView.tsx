@@ -46,10 +46,10 @@ export default function LoginView({ role: initialRole, language: currentLanguage
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
 
   useEffect(() => {
-    const savedRemember = localStorage.getItem('nercare_remember') === 'true'
+    const savedRemember = localStorage.getItem('smaran_remember') === 'true' || localStorage.getItem('nercare_remember') === 'true'
     setRemember(savedRemember)
     if (savedRemember) {
-      const savedUser = localStorage.getItem('nercare_last_user')
+      const savedUser = localStorage.getItem('smaran_last_user') || localStorage.getItem('nercare_last_user')
       if (savedUser) setUserId(savedUser)
     }
   }, [])
@@ -79,9 +79,11 @@ export default function LoginView({ role: initialRole, language: currentLanguage
 
       if (res.ok && data.success) {
         if (remember) {
-          localStorage.setItem('nercare_remember', 'true')
-          localStorage.setItem('nercare_last_user', userId)
+          localStorage.setItem('smaran_remember', 'true')
+          localStorage.setItem('smaran_last_user', userId)
         } else {
+          localStorage.removeItem('smaran_remember')
+          localStorage.removeItem('smaran_last_user')
           localStorage.removeItem('nercare_remember')
           localStorage.removeItem('nercare_last_user')
         }
@@ -107,8 +109,8 @@ export default function LoginView({ role: initialRole, language: currentLanguage
       const demoAccount = DEMO_ACCOUNTS[selectedRole]
       if (userId.trim().toUpperCase() === demoAccount.userId && password === demoAccount.password) {
         if (remember) {
-          localStorage.setItem('nercare_remember', 'true')
-          localStorage.setItem('nercare_last_user', userId)
+          localStorage.setItem('smaran_remember', 'true')
+          localStorage.setItem('smaran_last_user', userId)
         }
         onLogin({
           name: demoAccount.name,
@@ -127,8 +129,8 @@ export default function LoginView({ role: initialRole, language: currentLanguage
       const demoAccount = DEMO_ACCOUNTS[selectedRole]
       if (userId.trim().toUpperCase() === demoAccount.userId && password === demoAccount.password) {
         if (remember) {
-          localStorage.setItem('nercare_remember', 'true')
-          localStorage.setItem('nercare_last_user', userId)
+          localStorage.setItem('smaran_remember', 'true')
+          localStorage.setItem('smaran_last_user', userId)
         }
         onLogin({
           name: demoAccount.name,
@@ -234,9 +236,9 @@ export default function LoginView({ role: initialRole, language: currentLanguage
         {/* Header Branding */}
         <div className="text-center mb-6">
           <div className="text-4xl mb-3" aria-hidden="true">🪔</div>
-          <h1 className="text-3xl font-bold text-[#1A1A1A] mb-1">NerCare</h1>
+          <h1 className="text-3xl font-bold text-[#1A1A1A] mb-1">Smaran · स्मरण</h1>
           <p className="text-base text-[#5F5E5A]">
-            Dementia Care & Cognitive Wellness for Northeast India
+            Dementia Care & Cognitive Wellness Platform
           </p>
         </div>
 

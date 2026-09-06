@@ -68,7 +68,7 @@ export default function HomeView({ language, onChangeLanguage, onSelectRole }: P
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-8">
             <span className="text-2xl">🪔</span>
-            <span className="text-amber text-xs font-bold tracking-[0.25em] uppercase">NER Dementia Care</span>
+            <span className="text-amber text-xs font-bold tracking-[0.25em] uppercase">Smaran · Dementia Care</span>
           </div>
           <div className="mb-6">
             <p className="text-sage-light text-sm mb-1 tracking-wide">

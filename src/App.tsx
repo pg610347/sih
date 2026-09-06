@@ -23,7 +23,7 @@ export const LANGS: Record<Language, { name: string; nativeName: string; greetin
 }
 
 // Persistence keys
-const AUTH_KEY = 'nercare_auth_v1'
+const AUTH_KEY = 'smaran_auth_v1'
 
 type AppView = 'language' | 'role' | 'login' | 'welcome' | 'app'
 
@@ -31,7 +31,7 @@ type AppView = 'language' | 'role' | 'login' | 'welcome' | 'app'
 
 function getSavedLanguage(): Language {
   try {
-    const saved = localStorage.getItem(LANG_STORAGE_KEY)
+    const saved = localStorage.getItem(LANG_STORAGE_KEY) || localStorage.getItem('nercare_language')
     if (saved && saved in LANGS) return saved as Language
   } catch { /* ignore */ }
   return 'english'
@@ -51,7 +51,7 @@ export interface AuthState {
 
 function getSavedAuth(): AuthState | null {
   try {
-    const raw = localStorage.getItem(AUTH_KEY)
+    const raw = localStorage.getItem(AUTH_KEY) || localStorage.getItem('nercare_auth_v1')
     if (!raw) return null
     const parsed = JSON.parse(raw)
     if (parsed && parsed.role && parsed.name) return parsed as AuthState
@@ -64,7 +64,10 @@ function saveAuth(state: AuthState) {
 }
 
 function clearAuth() {
-  try { localStorage.removeItem(AUTH_KEY) } catch { /* ignore */ }
+  try {
+    localStorage.removeItem(AUTH_KEY)
+    localStorage.removeItem('nercare_auth_v1')
+  } catch { /* ignore */ }
 }
 
 // ─── Initial view logic ─────────────────────────────────────────────────────
@@ -72,8 +75,8 @@ function clearAuth() {
 function getInitialView(): AppView {
   try {
     // If user has a remembered session, go straight to login
-    const hasLang = !!localStorage.getItem(LANG_STORAGE_KEY)
-    const hasRemember = localStorage.getItem('nercare_remember') === 'true'
+    const hasLang = !!localStorage.getItem(LANG_STORAGE_KEY) || !!localStorage.getItem('nercare_language')
+    const hasRemember = localStorage.getItem('smaran_remember') === 'true' || localStorage.getItem('nercare_remember') === 'true'
     if (hasLang && hasRemember) return 'login'
     if (hasLang) return 'role'
   } catch { /* ignore */ }

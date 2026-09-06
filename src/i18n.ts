@@ -1,6 +1,6 @@
 export type Language = 'english' | 'assamese' | 'bengali' | 'hindi' | 'manipuri' | 'khasi' | 'bhojpuri' | 'konkani'
 
-export const LANG_STORAGE_KEY = 'nercare_language'
+export const LANG_STORAGE_KEY = 'smaran_language'
 
 export interface PatientStrings {
   // Language screen

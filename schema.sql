@@ -1,5 +1,5 @@
 -- ============================================================
--- NerCare PostgreSQL Schema for Login & User Tracking on Vercel
+-- Smaran PostgreSQL Schema for Login & User Tracking on Vercel
 -- ============================================================
 
 -- 1. Users Table
