@@ -1,11 +1,58 @@
-const GEMINI_API_KEY = import.meta.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY || ""
+// Resolve API key from localStorage (in-app configuration) or Vite env variables
+export function getGeminiApiKey(): string {
+  try {
+    const fromStorage = localStorage.getItem('smaran_gemini_api_key') || localStorage.getItem('gemini_api_key')
+    if (fromStorage && fromStorage.trim()) return fromStorage.trim()
+  } catch {}
+  return (
+    import.meta.env.GEMINI_API_KEY ||
+    import.meta.env.VITE_GEMINI_API_KEY ||
+    ""
+  ).trim()
+}
 
-// Fast and actively available models on this key
+export function hasGeminiApiKey(): boolean {
+  return !!getGeminiApiKey()
+}
+
+export function saveGeminiApiKey(key: string): void {
+  try {
+    localStorage.setItem('smaran_gemini_api_key', key.trim())
+  } catch {}
+}
+
+export function clearGeminiApiKey(): void {
+  try {
+    localStorage.removeItem('smaran_gemini_api_key')
+    localStorage.removeItem('gemini_api_key')
+  } catch {}
+}
+
+// Tested active models in Google Gemini API
 const CANDIDATE_MODELS = [
-  "gemini-3.5-flash",
+  "gemini-3.6-flash",
   "gemini-3.8-flash",
-  "gemini-flash-latest"
+  "gemini-3.7-flash",
+  "gemini-2.5-flash",
+  "gemini-2.0-flash",
+  "gemini-1.5-flash",
 ]
+
+// ─── Quick key verification ───────────────────────────────────────────────────
+
+export async function testGeminiApiKey(key: string): Promise<{ ok: boolean; error?: string }> {
+  if (!key || !key.trim()) return { ok: false, error: "API key cannot be blank." }
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key.trim()}`)
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      return { ok: false, error: err.error?.message || `HTTP ${res.status}: Invalid key` }
+    }
+    return { ok: true }
+  } catch (e: any) {
+    return { ok: false, error: e.message || "Network error connecting to Gemini API" }
+  }
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -68,20 +115,21 @@ export async function getGeminiResponse(
   history: GeminiMessage[],
   systemPrompt: string,
 ): Promise<AIResponse> {
+  const apiKey = getGeminiApiKey()
+  if (!apiKey) {
+    throw new Error("Gemini API key is missing. Please add GEMINI_API_KEY to your .env file, or tap 'Connect API Key' in the companion settings.")
+  }
+
   const contents: GeminiMessage[] = [
     ...history,
     { role: "user", parts: [{ text: userMessage }] },
   ]
 
-  if (!GEMINI_API_KEY) {
-    throw new Error("Gemini API key is missing. Please set GEMINI_API_KEY in your .env file or Vercel Environment Variables.")
-  }
-
   let lastError: Error | null = null
 
   // Try candidate models in order if one experiences 503 high demand or temporary errors
   for (const model of CANDIDATE_MODELS) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
     try {
       const res = await fetch(url, {
         method: "POST",
@@ -127,10 +175,14 @@ export async function getGeminiResponse(
         }
       }
 
+      const chips = Array.isArray(parsed.chips)
+        ? parsed.chips.map((c: any) => (typeof c === 'string' ? c : c?.title || c?.text || String(c))).filter(Boolean)
+        : undefined
+
       return {
         text: parsed.text || "I am here with you ❤️",
         navigate: parsed.navigate && VALID_TARGETS.has(parsed.navigate) ? parsed.navigate : undefined,
-        chips: Array.isArray(parsed.chips) ? parsed.chips : undefined,
+        chips,
       }
     } catch (err: any) {
       lastError = err

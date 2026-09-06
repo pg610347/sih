@@ -1,5 +1,13 @@
 import { useState, useRef, useEffect } from 'react'
-import { getGeminiResponse, buildSystemPrompt, type GeminiMessage } from '@/gemini'
+import {
+  getGeminiResponse,
+  buildSystemPrompt,
+  type GeminiMessage,
+  getGeminiApiKey,
+  saveGeminiApiKey,
+  testGeminiApiKey,
+  clearGeminiApiKey,
+} from '@/gemini'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -93,16 +101,40 @@ function VoiceLabel({ state, name }: { state: VoiceState; name: string }) {
   return null
 }
 
-// ─── Settings panel ───────────────────────────────────────────────────────────
-
-function SettingsPanel({ persona, setPersona, speed, setSpeed, onClose }: {
+function SettingsPanel({ persona, setPersona, speed, setSpeed, onClose, onKeyUpdated }: {
   persona: Gender; setPersona: (g: Gender) => void
   speed: number; setSpeed: (s: number) => void
   onClose: () => void
+  onKeyUpdated: () => void
 }) {
+  const [apiKeyInput, setApiKeyInput] = useState(getGeminiApiKey())
+  const [testing, setTesting] = useState(false)
+  const [feedback, setFeedback] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+
+  const handleSaveAndVerify = async () => {
+    const trimmed = apiKeyInput.trim()
+    if (!trimmed) {
+      clearGeminiApiKey()
+      setFeedback({ type: 'ok', text: 'API key cleared. System will use friendly offline responses.' })
+      onKeyUpdated()
+      return
+    }
+    setTesting(true)
+    setFeedback(null)
+    const result = await testGeminiApiKey(trimmed)
+    setTesting(false)
+    if (result.ok) {
+      saveGeminiApiKey(trimmed)
+      setFeedback({ type: 'ok', text: 'Connected! Gemini AI is ready to chat.' })
+      onKeyUpdated()
+    } else {
+      setFeedback({ type: 'err', text: result.error || 'Invalid API key. Please check AI Studio.' })
+    }
+  }
+
   return (
     <div className="fixed inset-0 bg-bark/40 z-50 flex items-end" onClick={onClose}>
-      <div className="bg-white rounded-t-3xl w-full p-7 pb-10 max-h-[70vh] overflow-auto" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-t-3xl w-full p-7 pb-10 max-h-[85vh] overflow-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-6">
           <p className="font-serif text-bark text-2xl font-bold">Companion Settings</p>
           <button onClick={onClose} className="text-3xl text-bark/40 hover:text-bark">×</button>
@@ -121,12 +153,50 @@ function SettingsPanel({ persona, setPersona, speed, setSpeed, onClose }: {
         </div>
 
         <p className="text-bark/50 text-lg font-bold uppercase tracking-wide mb-3">Voice speed</p>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-3 gap-3 mb-7">
           {[{ label: 'Slow', val: 0.7 }, { label: 'Normal', val: 0.9 }, { label: 'Fast', val: 1.1 }].map(s => (
             <button key={s.label} onClick={() => setSpeed(s.val)}
               className={`py-4 rounded-2xl border-2 font-bold text-lg transition-all ${Math.abs(speed - s.val) < 0.15 ? 'bg-forest text-parchment border-forest' : 'bg-white border-sand text-bark'}`}
             >{s.label}</button>
           ))}
+        </div>
+
+        <div className="border-t border-sand pt-5">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-bark/50 text-lg font-bold uppercase tracking-wide">Gemini AI Connection</p>
+            <a
+              href="https://aistudio.google.com/app/apikey"
+              target="_blank"
+              rel="noreferrer"
+              className="text-forest text-sm font-bold underline hover:opacity-80"
+            >
+              Get Free Key ↗
+            </a>
+          </div>
+          <p className="text-bark/60 text-sm mb-3">
+            Paste your Google AI Studio key (starts with <code className="bg-sand px-1.5 py-0.5 rounded text-bark font-mono">AIzaSy...</code>) to activate live smart conversations.
+          </p>
+          <div className="flex gap-2 mb-3">
+            <input
+              type="password"
+              placeholder="Paste AIzaSy... key"
+              value={apiKeyInput}
+              onChange={e => setApiKeyInput(e.target.value)}
+              className="flex-1 bg-sand rounded-xl px-4 py-3 text-bark text-base focus:outline-none focus:ring-2 focus:ring-forest/40 font-mono"
+            />
+            <button
+              onClick={handleSaveAndVerify}
+              disabled={testing}
+              className="px-5 py-3 rounded-xl bg-forest text-parchment font-bold text-base hover:opacity-90 disabled:opacity-50 transition-all shrink-0"
+            >
+              {testing ? 'Testing...' : 'Save & Verify'}
+            </button>
+          </div>
+          {feedback && (
+            <div className={`p-3 rounded-xl text-sm font-semibold ${feedback.type === 'ok' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+              {feedback.text}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -155,12 +225,18 @@ export default function AICompanionView({ onBack, onNavigate, userName }: Props)
   const [showSettings, setShowSettings] = useState(false)
   const [useVoice, setUseVoice] = useState(false)
   const [introduced, setIntroduced] = useState(false)
+  const [hasKey, setHasKey] = useState<boolean>(() => !!getGeminiApiKey())
+  const [lastError, setLastError] = useState<string | null>(null)
   const msgEndRef = useRef<HTMLDivElement>(null)
   const srRef = useRef<any>(null)
   const msgId = useRef(0)
   const [geminiHistory, setGeminiHistory] = useState<GeminiMessage[]>([])
 
   const p = PERSONAS[persona]
+
+  const refreshKeyStatus = () => {
+    setHasKey(!!getGeminiApiKey())
+  }
 
   const addMessage = (msg: Omit<Message, 'id'>) => {
     msgId.current += 1
@@ -191,6 +267,7 @@ export default function AICompanionView({ onBack, onNavigate, userName }: Props)
     addMessage({ role: 'user', text: trimmed, inputMode: mode })
     setInput('')
     setVoiceState('thinking')
+    setLastError(null)
 
     const speakIfVoice = (t: string, onEnd?: () => void) => {
       if (mode === 'voice') {
@@ -227,6 +304,8 @@ export default function AICompanionView({ onBack, onNavigate, userName }: Props)
       }
     } catch (error: any) {
       console.error('Gemini API error:', error)
+      const errMsg = error?.message || 'Gemini API not responding'
+      setLastError(errMsg)
       const fallback = FALLBACK_RESPONSES[Math.floor(Math.random() * FALLBACK_RESPONSES.length)]
       addMessage({ role: 'ai', text: fallback.text, chips: fallback.chips })
       speakIfVoice(fallback.text)
@@ -262,14 +341,44 @@ export default function AICompanionView({ onBack, onNavigate, userName }: Props)
   return (
     <div className="min-h-screen flex flex-col bg-parchment">
       {/* Header */}
-      <div className="flex items-center gap-4 px-5 py-4 bg-white border-b border-sand sticky top-0 z-10">
+      <div className="flex items-center gap-3 px-5 py-3.5 bg-white border-b border-sand sticky top-0 z-10">
         <button onClick={onBack} className="w-12 h-12 flex items-center justify-center rounded-full bg-sand text-bark text-2xl shrink-0 active:scale-95 transition-transform">←</button>
         <div className="flex-1 text-center">
           <p className="font-serif text-bark text-xl font-bold">{p.name}</p>
-          <p className="text-bark/40 text-base">Your companion</p>
+          <div className="flex items-center justify-center gap-2 mt-0.5">
+            <span className="text-bark/40 text-xs">Your companion</span>
+            <button
+              onClick={() => setShowSettings(true)}
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold transition-all ${
+                hasKey
+                  ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                  : 'bg-amber/30 text-bark hover:bg-amber/40 animate-pulse'
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full ${hasKey ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+              {hasKey ? 'Gemini Live' : 'Connect Gemini API'}
+            </button>
+          </div>
         </div>
         <button onClick={() => setShowSettings(true)} className="w-12 h-12 flex items-center justify-center rounded-full bg-sand text-bark text-2xl shrink-0 active:scale-95 transition-transform">⚙️</button>
       </div>
+
+      {/* Warning banner when key is missing or errored */}
+      {(!hasKey || lastError) && (
+        <div className="bg-amber/15 border-b border-amber/30 px-4 py-2 flex items-center justify-between text-xs text-bark">
+          <span>
+            {lastError
+              ? `⚠️ Gemini API: ${lastError.slice(0, 70)}... (using friendly offline responses)`
+              : 'ℹ️ Offline mode active. Add your Gemini API key in settings for intelligent custom answers.'}
+          </span>
+          <button
+            onClick={() => setShowSettings(true)}
+            className="ml-2 font-bold text-forest underline shrink-0 hover:opacity-80"
+          >
+            Configure Key ⚙️
+          </button>
+        </div>
+      )}
 
       {/* Voice/text toggle + avatar section */}
       <div className="bg-white border-b border-sand px-5 pt-5 pb-4">
@@ -384,7 +493,14 @@ export default function AICompanionView({ onBack, onNavigate, userName }: Props)
       )}
 
       {showSettings && (
-        <SettingsPanel persona={persona} setPersona={setPersona} speed={speed} setSpeed={setSpeed} onClose={() => setShowSettings(false)} />
+        <SettingsPanel
+          persona={persona}
+          setPersona={setPersona}
+          speed={speed}
+          setSpeed={setSpeed}
+          onClose={() => setShowSettings(false)}
+          onKeyUpdated={refreshKeyStatus}
+        />
       )}
     </div>
   )
