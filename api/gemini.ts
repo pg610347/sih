@@ -8,9 +8,6 @@ const CANDIDATE_MODELS = [
   'gemini-3.5-flash',
 ]
 
-// Server-side fallback key (only accessible on the server, never sent to the client)
-const SERVER_FALLBACK_KEY = Buffer.from('QVEuQWI4Uk42SmZmZFlhdGFtNUVzMDRKU19fTkdlbFhKb1RpeEVEc1ZQUlh0TjkycWpCSmc=', 'base64').toString()
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -31,10 +28,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'userMessage is required.' })
   }
 
-  const apiKey = (process.env.GEMINI_API_KEY || SERVER_FALLBACK_KEY || '').trim()
+  // Purely private: Read strictly from server environment variables (never committed to repository)
+  const apiKey = (process.env.GEMINI_API_KEY || '').trim()
 
   if (!apiKey) {
-    return res.status(500).json({ error: 'Gemini API key is not configured on the server.' })
+    return res.status(500).json({
+      error: 'GEMINI_API_KEY is not configured in server environment variables. Please set GEMINI_API_KEY in your Vercel Project Settings.',
+    })
   }
 
   const contents = [

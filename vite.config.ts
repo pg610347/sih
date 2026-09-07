@@ -1,4 +1,4 @@
-import { defineConfig, type HtmlTagDescriptor, type Plugin } from 'vite'
+import { defineConfig, loadEnv, type HtmlTagDescriptor, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'node:path'
@@ -7,6 +7,11 @@ import siteConfiguration from './.figma/make/site.json'
 
 // Vite config — https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+  if (env.GEMINI_API_KEY) {
+    process.env.GEMINI_API_KEY = env.GEMINI_API_KEY
+  }
+
   // .figma/make/deploy-preview passes `--mode development` for cached-preview builds.
   const emitSourcemaps = mode === 'development'
 
@@ -404,6 +409,14 @@ function apiDevPlugin(): Plugin {
 
         try {
           if (endpoint === 'gemini') {
+            if (!process.env.GEMINI_API_KEY) {
+              try {
+                const fs = await import('node:fs')
+                const raw = fs.readFileSync('.env', 'utf-8')
+                const m = raw.match(/GEMINI_API_KEY=(.*)/)
+                if (m) process.env.GEMINI_API_KEY = m[1].trim()
+              } catch {}
+            }
             const geminiHandler = (await import('./api/gemini.ts')).default
             return await geminiHandler(mockReq, mockRes)
           } else if (endpoint === 'login') {
