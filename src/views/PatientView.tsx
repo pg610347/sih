@@ -2506,7 +2506,7 @@ export default function PatientView({ language, onChangeLanguage, onBack, userNa
           aria-label="Home"
         >
           <span className="text-2xl">🏠</span>
-          <span className="text-xs font-semibold mt-0.5">{tr.home || 'Home'}</span>
+          <span className="text-xs font-semibold mt-0.5">{(tr as any).home || 'Home'}</span>
         </button>
 
         <button

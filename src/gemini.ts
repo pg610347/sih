@@ -1,53 +1,7 @@
 // ─── Backend Gemini API Client ───────────────────────────────────────────────
-// In adherence to security best practices, the Google Gemini API key is stored
-// strictly on the server (environment variables) and NEVER exposed to client browsers.
+// In adherence to strict security standards, the Gemini API key is maintained
+// 100% on the server and is never stored, exposed, or accessed in the frontend.
 const BACKEND_ENDPOINT = '/api/gemini'
-
-// Optional custom key override if a doctor/admin enters their own personal key in settings
-export function getGeminiApiKey(): string {
-  try {
-    const fromStorage = localStorage.getItem('smaran_gemini_api_key') || localStorage.getItem('gemini_api_key')
-    if (fromStorage && fromStorage.trim()) return fromStorage.trim()
-  } catch {}
-  return ''
-}
-
-export function hasGeminiApiKey(): boolean {
-  // Always true: Backend securely manages the Gemini API key
-  return true
-}
-
-export function saveGeminiApiKey(key: string): void {
-  try {
-    localStorage.setItem('smaran_gemini_api_key', key.trim())
-  } catch {}
-}
-
-export function clearGeminiApiKey(): void {
-  try {
-    localStorage.removeItem('smaran_gemini_api_key')
-    localStorage.removeItem('gemini_api_key')
-  } catch {}
-}
-
-// ─── Quick backend connectivity check ────────────────────────────────────────
-
-export async function testGeminiApiKey(_key?: string): Promise<{ ok: boolean; error?: string }> {
-  try {
-    const res = await fetch(BACKEND_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userMessage: 'ping' }),
-    })
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      return { ok: false, error: err.error || `HTTP ${res.status}` }
-    }
-    return { ok: true }
-  } catch (e: any) {
-    return { ok: false, error: e.message || 'Network error connecting to backend Gemini endpoint' }
-  }
-}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -62,7 +16,26 @@ export interface AIResponse {
   chips?: string[]
 }
 
-// ─── System prompt builder ────────────────────────────────────────────────────
+// ─── Health / Connectivity Check ──────────────────────────────────────────────
+
+export async function checkBackendStatus(): Promise<{ online: boolean; error?: string }> {
+  try {
+    const res = await fetch(BACKEND_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userMessage: 'ping' }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      return { online: false, error: err.error || `HTTP ${res.status}` }
+    }
+    return { online: true }
+  } catch (e: any) {
+    return { online: false, error: e.message || 'Connecting to backend...' }
+  }
+}
+
+// ─── System Prompt Builder ────────────────────────────────────────────────────
 
 export function buildSystemPrompt(companionName: string, userName?: string): string {
   const userContext = userName ? ` The person you are speaking with is named ${userName}. Address them warmly by their name (${userName}) naturally in conversation.` : ''
@@ -98,7 +71,7 @@ Rules:
 6. Respond in the same language the user speaks (including Bhojpuri, Konkani, Hindi, Assamese, Bengali, Manipuri, Khasi, or English)`
 }
 
-// ─── API call ─────────────────────────────────────────────────────────────────
+// ─── API Call to Serverless Backend ───────────────────────────────────────────
 
 const VALID_TARGETS = new Set([
   'diary', 'music', 'reminiscence', 'pairs',
