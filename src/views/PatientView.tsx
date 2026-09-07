@@ -675,7 +675,8 @@ function ReminiscenceGame({ onBack, soundEnabled, recordActivity }: { onBack: ()
   const [idx, setIdx] = useState(0)
   const [phase, setPhase] = useState<'show' | 'memory'>('show')
   const [isNarrating, setIsNarrating] = useState(false)
-  const { celebrating, message, celebKey, celebrate } = useCelebration(soundEnabled)
+  const [savedToDiary, setSavedToDiary] = useState(false)
+  const { celebrating, message, sub, celebKey, celebrate } = useCelebration(soundEnabled)
   const obj = NER_OBJECTS[idx % NER_OBJECTS.length]
 
   const handleBack = () => {
@@ -687,6 +688,7 @@ function ReminiscenceGame({ onBack, soundEnabled, recordActivity }: { onBack: ()
   const next = () => {
     stopSingAlong()
     setIsNarrating(false)
+    setSavedToDiary(false)
     if (soundEnabled) playSoundEffect('tap')
     setIdx(i => i + 1)
     setPhase('show')
@@ -704,8 +706,28 @@ function ReminiscenceGame({ onBack, soundEnabled, recordActivity }: { onBack: ()
     }
   }
 
+  const handleSaveToDiary = () => {
+    try {
+      const raw = localStorage.getItem('smaran_memories')
+      const list = raw ? JSON.parse(raw) : []
+      list.unshift({
+        id: 'rem-' + Date.now(),
+        date: new Date().toISOString().split('T')[0],
+        title: `${obj.name} (${obj.localName})`,
+        transcript: `${obj.scene} ${obj.sensory}`,
+        prompt: obj.prompt,
+        emoji: obj.emoji,
+      })
+      localStorage.setItem('smaran_memories', JSON.stringify(list))
+      setSavedToDiary(true)
+      if (soundEnabled) playSoundEffect('match')
+      celebrate('Saved to Your Diary! 📔', `Your memory of ${obj.name} has been added to your diary.`, 'Safe in your journal')
+    } catch {}
+  }
+
   if (phase === 'memory') return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-amber/5 px-6 py-10 gap-6 text-center animate-fadeUp">
+      <CelebrationOverlay key={celebKey} active={celebrating} message={message} sub={sub} />
       <span className="text-[110px] leading-none">{obj.emoji}</span>
       <div>
         <p className="font-serif text-bark text-4xl font-bold">{obj.name}</p>
@@ -733,6 +755,17 @@ function ReminiscenceGame({ onBack, soundEnabled, recordActivity }: { onBack: ()
       </div>
 
       <div className="flex flex-col gap-3 w-full max-w-sm">
+        <button
+          onClick={handleSaveToDiary}
+          disabled={savedToDiary}
+          className={`py-3.5 px-6 rounded-2xl font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2 border-2 ${
+            savedToDiary
+              ? 'bg-emerald-50 border-emerald-400 text-emerald-800'
+              : 'bg-white border-amber/60 text-bark hover:bg-amber/10 shadow-sm'
+          }`}
+        >
+          <span>{savedToDiary ? '✓ Saved in Diary' : '📔 Save This to My Diary'}</span>
+        </button>
         <BigBtn onClick={next} color="forest" full>Show me another memory →</BigBtn>
         <BackBar onBack={handleBack} />
       </div>
@@ -741,11 +774,11 @@ function ReminiscenceGame({ onBack, soundEnabled, recordActivity }: { onBack: ()
 
   return (
     <div className="min-h-screen flex flex-col bg-parchment">
-      <CelebrationOverlay key={celebKey} active={celebrating} message={message} />
+      <CelebrationOverlay key={celebKey} active={celebrating} message={message} sub={sub} />
       <BackBar onBack={handleBack} />
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-6 gap-8 text-center animate-fadeUp">
         <p className="text-bark/50 text-2xl">Do you recognise this?</p>
-        <span className="text-[150px] leading-none">{obj.emoji}</span>
+        <span className="text-[150px] leading-none drop-shadow-sm">{obj.emoji}</span>
         <div>
           <p className="font-serif text-bark text-5xl font-bold">{obj.name}</p>
           <p className="text-bark/50 text-2xl font-serif italic mt-2">{obj.localName}</p>
@@ -753,7 +786,7 @@ function ReminiscenceGame({ onBack, soundEnabled, recordActivity }: { onBack: ()
         <div className="flex flex-col gap-4 w-full max-w-sm">
           <BigBtn onClick={() => {
             if (soundEnabled) playSoundEffect('match')
-            celebrate()
+            celebrate(`Memory Cherished! 🌸`, `Wonderful! You remembered the ${obj.name}!`, obj.name)
             recordActivity('Remember This')
             setPhase('memory')
           }} color="amber" full>❤️  Yes, I remember this</BigBtn>
@@ -1746,17 +1779,20 @@ function OrientationGame({ onBack, soundEnabled, recordActivity }: { onBack: () 
   const [questions] = useState(() => getDynamicOrientationQuestions())
   const [idx, setIdx] = useState(0)
   const [chosen, setChosen] = useState<string | null>(null)
+  const [score, setScore] = useState(0)
   const [done, setDone] = useState(false)
-  const { celebrating, message, celebKey, celebrate } = useCelebration(soundEnabled)
+  const { celebrating, message, sub, celebKey, celebrate } = useCelebration(soundEnabled)
 
   const q = questions[idx % questions.length]
 
   const handleChoose = (opt: string) => {
+    if (chosen !== null) return
     setChosen(opt)
     const isCorrect = opt === q.correct
     if (isCorrect) {
+      setScore(s => s + 1)
       if (soundEnabled) playSoundEffect('match')
-      celebrate()
+      celebrate(`Spot on! ${opt} 🌟`, `Wonderful! Today is ${opt}!`, q.feedback)
     } else {
       if (soundEnabled) playSoundEffect('tap')
     }
@@ -1776,13 +1812,17 @@ function OrientationGame({ onBack, soundEnabled, recordActivity }: { onBack: () 
 
   if (done) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-amber/10 px-8 py-12 text-center gap-7 animate-fadeUp">
+      <CelebrationOverlay key={celebKey} active={celebrating} message={message} sub={sub} />
       <div className="text-[110px] leading-none animate-bounce">🌍</div>
       <p className="font-serif text-bark text-5xl font-bold">Orientation Complete!</p>
-      <p className="text-bark/70 text-2xl max-w-sm leading-relaxed">
-        Staying mindful of time, nature, and home keeps your spirit peaceful and grounded.
-      </p>
+      <div className="bg-white/80 rounded-2xl p-6 border border-amber/30 max-w-sm w-full shadow-sm">
+        <p className="text-forest text-2xl font-bold">⭐ {score} of {questions.length} Correct</p>
+        <p className="text-bark/70 text-lg mt-2 leading-relaxed">
+          Staying mindful of time, nature, and home keeps your spirit peaceful and grounded.
+        </p>
+      </div>
       <div className="flex flex-col gap-4 w-full max-w-xs">
-        <BigBtn onClick={() => { setIdx(0); setChosen(null); setDone(false) }} color="forest" full>Practice again</BigBtn>
+        <BigBtn onClick={() => { setIdx(0); setChosen(null); setScore(0); setDone(false) }} color="forest" full>Practice again</BigBtn>
         <BackBar onBack={onBack} />
       </div>
     </div>
@@ -1792,36 +1832,52 @@ function OrientationGame({ onBack, soundEnabled, recordActivity }: { onBack: () 
 
   return (
     <div className="min-h-screen flex flex-col bg-parchment">
-      <CelebrationOverlay key={celebKey} active={celebrating} message={message} />
+      <CelebrationOverlay key={celebKey} active={celebrating} message={message} sub={sub} />
       <BackBar onBack={onBack} />
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-6 gap-6 text-center animate-fadeUp max-w-sm mx-auto w-full">
-        <div className="text-bark/40 text-sm font-bold uppercase tracking-wider">
-          Question {idx + 1} of {questions.length}
+        <div className="flex items-center justify-between w-full px-2 text-bark/50 text-sm font-bold uppercase tracking-wider">
+          <span>Question {idx + 1} of {questions.length}</span>
+          <span className="text-forest">⭐ {score} Points</span>
         </div>
-        <span className="text-[100px] leading-none">{q.icon}</span>
+        <span className="text-[100px] leading-none drop-shadow-sm">{q.icon}</span>
         <p className="font-serif text-bark text-4xl font-bold leading-tight max-w-xs">{q.q}</p>
-        {chosen === null ? (
-          <div className="flex flex-col gap-3.5 w-full max-w-xs">
-            {q.options.map((opt, i) => (
-              <BigBtn
+
+        <div className="flex flex-col gap-3.5 w-full max-w-xs">
+          {q.options.map((opt, i) => {
+            const isSelected = chosen === opt
+            const isTarget = opt === q.correct
+            return (
+              <button
                 key={i}
                 onClick={() => handleChoose(opt)}
-                color="white"
-                full
+                disabled={chosen !== null}
+                className={`flex items-center justify-between px-6 py-5 rounded-2xl border-2 font-bold text-xl transition-all shadow-sm active:scale-98 ${
+                  chosen === null
+                    ? 'bg-white border-sand hover:border-forest/50 text-bark'
+                    : isTarget
+                    ? 'bg-emerald-50 border-emerald-500 text-emerald-900 ring-4 ring-emerald-200 animate-success-pulse'
+                    : isSelected
+                    ? 'bg-amber/20 border-amber/60 text-bark'
+                    : 'bg-sand/30 border-sand/60 text-bark/40'
+                }`}
               >
-                {opt}
-              </BigBtn>
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center gap-6 animate-fadeUp w-full max-w-xs">
-            <div className={`rounded-3xl p-7 border-2 text-center w-full ${isChosenCorrect ? 'bg-amber/20 border-amber/50' : 'bg-sand/30 border-sand'}`}>
-              <p className="text-5xl mb-3">{isChosenCorrect ? '🌟' : '💛'}</p>
-              <p className="font-serif text-bark text-3xl font-bold">
-                {isChosenCorrect ? 'Wonderful!' : 'You said:'}
+                <span>{opt}</span>
+                {chosen !== null && isTarget && (
+                  <span className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center text-base">✓</span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+
+        {chosen !== null && (
+          <div className="flex flex-col items-center gap-5 animate-fadeUp w-full max-w-xs mt-2">
+            <div className={`rounded-2xl p-6 border-2 text-center w-full shadow-sm ${isChosenCorrect ? 'bg-emerald-50/80 border-emerald-300' : 'bg-sand/40 border-sand'}`}>
+              <p className="text-4xl mb-2">{isChosenCorrect ? '🌟' : '💛'}</p>
+              <p className="font-serif text-bark text-2xl font-bold">
+                {isChosenCorrect ? 'Wonderful!' : 'Good try!'}
               </p>
-              <p className="text-bark text-2xl mt-1 leading-snug font-medium">"{chosen}"</p>
-              <p className="text-bark/75 text-xl mt-3 leading-relaxed">{q.feedback}</p>
+              <p className="text-bark/80 text-lg mt-2 leading-relaxed font-medium">{q.feedback}</p>
             </div>
             <BigBtn onClick={next} color="forest" full>Next question →</BigBtn>
           </div>
@@ -1842,8 +1898,10 @@ function MemoryPairsGame({ onBack, soundEnabled, recordActivity }: { onBack: () 
   const [locked, setLocked] = useState(false)
   const [praise, setPraise] = useState(false)
   const [moves, setMoves] = useState(0)
+  const [combo, setCombo] = useState(0)
   const [peeking, setPeeking] = useState(false)
-  const { celebrating, message, celebKey, celebrate } = useCelebration(soundEnabled)
+  const [lastMatchName, setLastMatchName] = useState<string | null>(null)
+  const { celebrating, message, sub, celebKey, celebrate } = useCelebration(soundEnabled)
 
   function buildCards(pairs: 2 | 3 | 4): Card[] {
     return shuffled(
@@ -1875,18 +1933,26 @@ function MemoryPairsGame({ onBack, soundEnabled, recordActivity }: { onBack: () 
         if (soundEnabled) playSoundEffect('match')
         const next = revealed.map(c => c.id === firstId || c.id === card.id ? { ...c, state: 'matched' as const } : c)
         setCards(next)
-        celebrate()
+        const nextCombo = combo + 1
+        setCombo(nextCombo)
+        setLastMatchName(card.name)
+
+        const matchedCount = next.filter(c => c.state === 'matched').length / 2
+        const comboPill = nextCombo >= 2 ? `🔥 ${nextCombo} Pairs in a row!` : `Pair ${matchedCount} of ${level}`
+        celebrate(`Matched ${card.name}! ${card.emoji}`, `Wonderful! You found the ${card.name}!`, comboPill)
         recordActivity('Memory Pairs')
+
         if (next.every(c => c.state === 'matched')) {
           if (soundEnabled) playSoundEffect('fanfare')
           setTimeout(() => setPraise(true), 1200)
         }
       } else {
+        setCombo(0)
         setCards(cs => cs.map(c => c.state === 'revealed' ? { ...c, state: 'hidden' as const } : c))
       }
       setFirstId(null)
       setLocked(false)
-    }, 1200)
+    }, 1100)
   }
 
   const handlePeek = () => {
@@ -1906,16 +1972,29 @@ function MemoryPairsGame({ onBack, soundEnabled, recordActivity }: { onBack: () 
     setLocked(false)
     setPraise(false)
     setMoves(0)
+    setCombo(0)
+    setLastMatchName(null)
     setPeeking(false)
   }
 
+  const stars = moves <= level * 2 ? 3 : moves <= level * 3 ? 2 : 1
+
   if (praise) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-amber/10 px-8 py-12 text-center gap-7 animate-fadeUp">
+      <CelebrationOverlay key={celebKey} active={celebrating} message={message} sub={sub} />
       <div className="text-[120px] leading-none animate-bounce">🎉</div>
-      <p className="font-serif text-bark text-5xl font-bold">All pairs found!</p>
-      <p className="text-bark/70 text-2xl">
-        Completed in <strong>{moves} tries</strong>. Your memory is shining today!
-      </p>
+      <p className="font-serif text-bark text-5xl font-bold">All Pairs Found!</p>
+      
+      <div className="bg-white/85 rounded-3xl p-6 border-2 border-forest/30 shadow-sm max-w-sm w-full">
+        <div className="text-4xl mb-2">{'⭐'.repeat(stars)}</div>
+        <p className="text-forest text-xl font-bold">
+          {stars === 3 ? 'Gold Memory Star! ⭐⭐⭐' : stars === 2 ? 'Brilliant Focus! ⭐⭐' : 'Well Done! ⭐'}
+        </p>
+        <p className="text-bark/70 text-lg mt-2">
+          Solved in <strong>{moves} tries</strong> with {level} matching pairs. Your memory is active and shining!
+        </p>
+      </div>
+
       <div className="flex flex-col gap-4 w-full max-w-xs">
         {level === 2 && <BigBtn onClick={() => restart(3)} color="forest" full>Try 3 pairs (Balanced) →</BigBtn>}
         {level === 3 && <BigBtn onClick={() => restart(4)} color="forest" full>Try 4 pairs (Challenge) →</BigBtn>}
@@ -1929,12 +2008,12 @@ function MemoryPairsGame({ onBack, soundEnabled, recordActivity }: { onBack: () 
 
   return (
     <div className="min-h-screen flex flex-col bg-parchment">
-      <CelebrationOverlay key={celebKey} active={celebrating} message={message} />
+      <CelebrationOverlay key={celebKey} active={celebrating} message={message} sub={sub} />
       <BackBar onBack={onBack} />
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-4 gap-5 animate-fadeUp max-w-md mx-auto w-full">
         <div className="text-center">
           <p className="font-serif text-bark text-4xl font-bold">Memory Pairs</p>
-          <p className="text-bark/50 text-xl mt-1">Tap two cards to find matching treasures</p>
+          <p className="text-bark/60 text-lg mt-1 font-medium">Tap two cards to reveal and match them</p>
         </div>
 
         {/* Level Selector Tabs */}
@@ -1960,9 +2039,15 @@ function MemoryPairsGame({ onBack, soundEnabled, recordActivity }: { onBack: () 
         </div>
 
         {/* Status + Peek Hint */}
-        <div className="flex items-center justify-between w-full px-2 text-bark/60 text-sm font-semibold">
-          <span>{cards.filter(c => c.state === 'matched').length / 2} of {level} pairs</span>
-          <span>Moves: {moves}</span>
+        <div className="flex items-center justify-between w-full px-2 text-bark/70 text-sm font-bold">
+          <span className="bg-forest/10 px-3 py-1 rounded-full text-forest">
+            {cards.filter(c => c.state === 'matched').length / 2} of {level} Pairs Found
+          </span>
+          {combo >= 2 && (
+            <span className="bg-amber text-bark px-2.5 py-0.5 rounded-full text-xs font-bold animate-bounce">
+              🔥 {combo} in a row!
+            </span>
+          )}
           <button
             onClick={handlePeek}
             disabled={peeking || locked}
@@ -1978,26 +2063,34 @@ function MemoryPairsGame({ onBack, soundEnabled, recordActivity }: { onBack: () 
         <div className={`grid ${cols} gap-3.5 w-full`}>
           {cards.map(card => {
             const isShown = card.state === 'revealed' || card.state === 'matched' || peeking
+            const isMatched = card.state === 'matched'
+            const isFirst = card.id === firstId
             return (
               <button
                 key={card.id}
                 onClick={() => tap(card)}
                 disabled={card.state !== 'hidden' || locked || peeking}
-                className={`rounded-2xl flex flex-col items-center justify-center p-3 transition-all active:scale-95 min-h-[110px] border-2 shadow-sm ${
-                  card.state === 'matched'
-                    ? 'bg-forest/10 border-forest/40 opacity-75'
+                className={`rounded-2xl flex flex-col items-center justify-center p-3 transition-all active:scale-95 min-h-[115px] border-2 shadow-sm ${
+                  isMatched
+                    ? 'bg-emerald-50/90 border-emerald-500 ring-2 ring-emerald-300 shadow-md animate-success-pulse'
+                    : isFirst
+                    ? 'bg-amber/25 border-amber ring-4 ring-amber/40 shadow-lg scale-102'
                     : isShown
-                    ? 'bg-amber/20 border-amber shadow-md'
-                    : 'bg-white border-sand hover:border-amber/40'
+                    ? 'bg-amber/15 border-amber/70 shadow-md'
+                    : 'bg-white border-sand hover:border-forest/40'
                 }`}
               >
                 {!isShown ? (
                   <span className="text-3xl">🌿</span>
                 ) : (
                   <>
-                    <span className="text-4xl leading-none">{card.emoji}</span>
+                    <span className="text-4xl leading-none drop-shadow-xs">{card.emoji}</span>
                     <span className="text-bark text-sm font-bold mt-1 text-center truncate max-w-full">{card.name}</span>
-                    {card.state === 'matched' && <span className="text-forest text-xs font-bold mt-0.5">✓ Matched</span>}
+                    {isMatched && (
+                      <span className="bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full mt-1">
+                        ✓ Matched
+                      </span>
+                    )}
                   </>
                 )}
               </button>
@@ -2014,22 +2107,28 @@ function MemoryPairsGame({ onBack, soundEnabled, recordActivity }: { onBack: () 
 function CategorySortGame({ onBack, soundEnabled, recordActivity }: { onBack: () => void; soundEnabled: boolean; recordActivity: (n: string) => void }) {
   const [items] = useState(() => shuffled(SORT_ITEMS))
   const [idx, setIdx] = useState(0)
+  const [chosenBin, setChosenBin] = useState<0 | 1 | null>(null)
   const [feedback, setFeedback] = useState<{ correct: boolean; hint: string } | null>(null)
   const [score, setScore] = useState(0)
   const [streak, setStreak] = useState(0)
   const [showHint, setShowHint] = useState(false)
   const [done, setDone] = useState(false)
-  const { celebrating, message, celebKey, celebrate } = useCelebration(soundEnabled)
+  const { celebrating, message, sub, celebKey, celebrate } = useCelebration(soundEnabled)
 
   const item = items[idx]
 
   const pick = (bin: 0 | 1) => {
+    if (chosenBin !== null) return
+    setChosenBin(bin)
     const correct = bin === item.bin
+    const binName = item.bin === 0 ? 'Kitchen' : 'Field'
     if (correct) {
       setScore(s => s + 1)
-      setStreak(s => s + 1)
+      const nextStreak = streak + 1
+      setStreak(nextStreak)
       if (soundEnabled) playSoundEffect('match')
-      celebrate()
+      const streakPill = nextStreak >= 2 ? `🔥 ${nextStreak} in a row! Sharp recall!` : undefined
+      celebrate(`That's right! ${item.name}! ✨`, `Yes! ${item.name} belongs in the ${binName}!`, streakPill || item.hint)
     } else {
       setStreak(0)
       if (soundEnabled) playSoundEffect('tap')
@@ -2041,6 +2140,7 @@ function CategorySortGame({ onBack, soundEnabled, recordActivity }: { onBack: ()
 
   const next = () => {
     setFeedback(null)
+    setChosenBin(null)
     setShowHint(false)
     if (idx + 1 >= items.length) {
       if (soundEnabled) playSoundEffect('fanfare')
@@ -2053,26 +2153,32 @@ function CategorySortGame({ onBack, soundEnabled, recordActivity }: { onBack: ()
 
   if (done) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-amber/10 px-8 py-12 text-center gap-7 animate-fadeUp">
+      <CelebrationOverlay key={celebKey} active={celebrating} message={message} sub={sub} />
       <div className="text-[120px] leading-none animate-bounce">🌾</div>
       <p className="font-serif text-bark text-5xl font-bold">Sorting Master!</p>
-      <p className="text-bark/70 text-2xl">
-        You sorted <strong>{score} out of {items.length}</strong> items correctly.
-      </p>
-      <p className="text-bark/50 text-xl">Every simple exercise keeps your thoughts clear and active.</p>
-      <BigBtn onClick={() => { setIdx(0); setScore(0); setStreak(0); setDone(false); setFeedback(null) }} color="forest" full>Play again</BigBtn>
+      <div className="bg-white/85 rounded-3xl p-6 border-2 border-forest/30 shadow-sm max-w-sm w-full">
+        <p className="text-forest text-2xl font-bold">
+          ⭐ {score} of {items.length} Correct
+        </p>
+        <p className="text-bark/70 text-lg mt-2">
+          Every everyday object you sorted brings back clear memories and keeps your mind alert and peaceful.
+        </p>
+      </div>
+      <BigBtn onClick={() => { setIdx(0); setScore(0); setStreak(0); setDone(false); setFeedback(null); setChosenBin(null) }} color="forest" full>Play again</BigBtn>
       <BackBar onBack={onBack} />
     </div>
   )
 
   return (
     <div className="min-h-screen flex flex-col bg-parchment">
-      <CelebrationOverlay key={celebKey} active={celebrating} message={message} />
+      <CelebrationOverlay key={celebKey} active={celebrating} message={message} sub={sub} />
       <BackBar onBack={onBack} />
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-6 gap-6 text-center animate-fadeUp max-w-md mx-auto w-full">
         <div>
           <p className="font-serif text-bark text-4xl font-bold">Kitchen or Field?</p>
-          <div className="flex items-center justify-center gap-3 mt-1">
-            <span className="text-bark/50 text-sm font-semibold">Item {idx + 1} of {items.length}</span>
+          <div className="flex items-center justify-center gap-3 mt-1.5">
+            <span className="text-bark/60 text-sm font-bold">Item {idx + 1} of {items.length}</span>
+            <span className="text-forest text-sm font-bold">⭐ {score} Points</span>
             {streak >= 2 && (
               <span className="bg-amber text-bark text-xs font-bold px-2.5 py-0.5 rounded-full animate-bounce">
                 🔥 {streak} in a row!
@@ -2087,32 +2193,49 @@ function CategorySortGame({ onBack, soundEnabled, recordActivity }: { onBack: ()
           <p className="text-bark/50 text-2xl font-serif italic mt-1">{item.localName}</p>
         </div>
 
-        {!feedback ? (
+        {chosenBin === null ? (
           <>
             <p className="text-bark text-2xl font-medium">Where does this belong?</p>
             <div className="grid grid-cols-2 gap-4 w-full max-w-xs">
-              <BigBtn onClick={() => pick(0)} color="terracotta" full>🍳 Kitchen</BigBtn>
-              <BigBtn onClick={() => pick(1)} color="forest" full>🌾 Field</BigBtn>
+              <button
+                onClick={() => pick(0)}
+                className="flex flex-col items-center justify-center py-6 px-4 rounded-3xl bg-terracotta text-parchment font-bold text-2xl active:scale-95 transition-transform shadow-lg shadow-terracotta/20 hover:opacity-95"
+              >
+                <span className="text-4xl mb-1">🍳</span>
+                <span>Kitchen</span>
+              </button>
+              <button
+                onClick={() => pick(1)}
+                className="flex flex-col items-center justify-center py-6 px-4 rounded-3xl bg-forest text-parchment font-bold text-2xl active:scale-95 transition-transform shadow-lg shadow-forest/20 hover:opacity-95"
+              >
+                <span className="text-4xl mb-1">🌾</span>
+                <span>Field</span>
+              </button>
             </div>
             {!showHint ? (
               <button
                 onClick={() => { setShowHint(true); if (soundEnabled) playSoundEffect('hint') }}
-                className="text-bark/50 text-sm font-semibold hover:text-bark underline decoration-dotted"
+                className="text-bark/60 text-sm font-semibold hover:text-bark underline decoration-dotted mt-1"
               >
                 💡 Need a gentle hint?
               </button>
             ) : (
-              <div className="bg-sand/40 border border-sand rounded-2xl p-4 text-bark/70 text-sm animate-fadeUp">
+              <div className="bg-sand/40 border border-sand rounded-2xl p-4 text-bark/80 text-sm animate-fadeUp max-w-xs">
                 💡 {item.hint}
               </div>
             )}
           </>
         ) : (
           <div className="animate-fadeUp flex flex-col items-center gap-5 w-full max-w-sm">
-            <div className={`rounded-3xl p-6 border-2 w-full text-center ${feedback.correct ? 'bg-amber/20 border-amber' : 'bg-rose/10 border-rose/30'}`}>
-              <p className="text-4xl mb-2">{feedback.correct ? '🌟' : '💛'}</p>
-              <p className="font-serif text-bark text-2xl font-bold">{feedback.correct ? 'That is right!' : 'Good try!'}</p>
-              <p className="text-bark/70 text-xl mt-2 leading-relaxed">{feedback.hint}</p>
+            <div className={`rounded-3xl p-6 border-2 w-full text-center shadow-sm ${feedback?.correct ? 'bg-emerald-50 border-emerald-400' : 'bg-sand/40 border-sand'}`}>
+              <p className="text-4xl mb-1.5">{feedback?.correct ? '🌟' : '💛'}</p>
+              <p className="font-serif text-bark text-3xl font-bold">
+                {feedback?.correct ? 'That is right!' : 'Good try!'}
+              </p>
+              <p className="text-forest font-bold text-lg mt-1">
+                {item.name} belongs in the {item.bin === 0 ? '🍳 Kitchen' : '🌾 Field'}
+              </p>
+              <p className="text-bark/75 text-base mt-2 leading-relaxed font-medium">{feedback?.hint}</p>
             </div>
             <BigBtn onClick={next} color="forest" full>Next item →</BigBtn>
           </div>
@@ -2130,7 +2253,8 @@ function PatternGame({ onBack, soundEnabled, recordActivity }: { onBack: () => v
   const [chosen, setChosen] = useState<string | null>(null)
   const [showHint, setShowHint] = useState(false)
   const [streak, setStreak] = useState(0)
-  const { celebrating, message, celebKey, celebrate } = useCelebration(soundEnabled)
+  const [score, setScore] = useState(0)
+  const { celebrating, message, sub, celebKey, celebrate } = useCelebration(soundEnabled)
   const round = rounds[idx % rounds.length]
 
   const [currentChoices, setCurrentChoices] = useState(() =>
@@ -2138,11 +2262,16 @@ function PatternGame({ onBack, soundEnabled, recordActivity }: { onBack: () => v
   )
 
   const pick = (val: string) => {
+    if (chosen !== null) return
     setChosen(val)
-    if (val === round.answer) {
-      setStreak(s => s + 1)
+    const isCorrect = val === round.answer
+    if (isCorrect) {
+      setScore(s => s + 1)
+      const nextStreak = streak + 1
+      setStreak(nextStreak)
       if (soundEnabled) playSoundEffect('match')
-      celebrate()
+      const streakPill = nextStreak >= 2 ? `🔥 ${nextStreak} in a row!` : 'Pattern Master'
+      celebrate(`Pattern Solved! 🌟`, `Spot on! The pattern continues with ${round.answer}!`, streakPill)
     } else {
       setStreak(0)
       if (soundEnabled) playSoundEffect('tap')
@@ -2163,15 +2292,16 @@ function PatternGame({ onBack, soundEnabled, recordActivity }: { onBack: () => v
 
   return (
     <div className="min-h-screen flex flex-col bg-parchment">
-      <CelebrationOverlay key={celebKey} active={celebrating} message={message} />
+      <CelebrationOverlay key={celebKey} active={celebrating} message={message} sub={sub} />
       <BackBar onBack={onBack} />
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-6 gap-7 text-center animate-fadeUp max-w-md mx-auto w-full">
         <div>
           <p className="font-serif text-bark text-4xl font-bold">What Comes Next?</p>
-          <div className="flex items-center justify-center gap-2 mt-1">
-            <span className="text-bark/50 text-sm font-semibold">Pattern {(idx % rounds.length) + 1} of {rounds.length}</span>
+          <div className="flex items-center justify-center gap-3 mt-1.5">
+            <span className="text-bark/60 text-sm font-bold">Pattern {(idx % rounds.length) + 1} of {rounds.length}</span>
+            <span className="text-forest text-sm font-bold">⭐ {score} Points</span>
             {streak >= 2 && (
-              <span className="bg-amber text-bark text-xs font-bold px-2 py-0.5 rounded-full">
+              <span className="bg-amber text-bark text-xs font-bold px-2.5 py-0.5 rounded-full animate-bounce">
                 🔥 {streak} Streak
               </span>
             )}
@@ -2179,26 +2309,37 @@ function PatternGame({ onBack, soundEnabled, recordActivity }: { onBack: () => v
         </div>
 
         {/* Pattern sequence row */}
-        <div className="flex items-center justify-center gap-2 flex-wrap">
+        <div className="flex items-center justify-center gap-2.5 flex-wrap">
           {round.seq.map((emoji, i) => (
-            <div key={i} className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white border-2 border-sand flex items-center justify-center text-3xl sm:text-4xl shadow-sm">
+            <div
+              key={i}
+              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white border-2 border-sand flex items-center justify-center text-3xl sm:text-4xl shadow-sm"
+            >
               {emoji}
             </div>
           ))}
-          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-2 border-dashed border-amber flex items-center justify-center text-3xl sm:text-4xl bg-amber/10 animate-pulse font-bold text-bark">
+          <div
+            className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-2 flex items-center justify-center text-3xl sm:text-4xl font-bold shadow-md transition-all ${
+              chosen === null
+                ? 'border-dashed border-amber bg-amber/15 animate-pulse text-bark'
+                : correct
+                ? 'border-emerald-500 bg-emerald-50 ring-4 ring-emerald-200 text-emerald-900 animate-success-pulse'
+                : 'border-amber/60 bg-sand/30 text-bark'
+            }`}
+          >
             {chosen ?? '?'}
           </div>
         </div>
 
-        {!chosen ? (
+        {chosen === null ? (
           <>
-            <p className="text-bark text-2xl font-medium">Which one comes next?</p>
+            <p className="text-bark text-2xl font-medium">Which one continues the pattern?</p>
             <div className="grid grid-cols-2 gap-4 w-full max-w-xs">
               {currentChoices.map(opt => (
                 <button
                   key={opt}
                   onClick={() => pick(opt)}
-                  className="flex items-center justify-center rounded-3xl bg-white border-2 border-sand hover:border-amber active:scale-95 transition-all h-28 text-6xl shadow-sm hover:shadow-md"
+                  className="flex items-center justify-center rounded-3xl bg-white border-2 border-sand hover:border-forest/60 active:scale-95 transition-all h-28 text-6xl shadow-sm hover:shadow-md"
                 >
                   {opt}
                 </button>
@@ -2207,26 +2348,27 @@ function PatternGame({ onBack, soundEnabled, recordActivity }: { onBack: () => v
             {!showHint ? (
               <button
                 onClick={() => { setShowHint(true); if (soundEnabled) playSoundEffect('hint') }}
-                className="text-bark/50 text-sm font-semibold hover:text-bark underline decoration-dotted mt-1"
+                className="text-bark/60 text-sm font-semibold hover:text-bark underline decoration-dotted mt-1"
               >
                 💡 Need a clue?
               </button>
             ) : (
-              <div className="bg-sand/40 border border-sand rounded-2xl p-4 text-bark/75 text-sm animate-fadeUp">
+              <div className="bg-sand/40 border border-sand rounded-2xl p-4 text-bark/80 text-sm animate-fadeUp max-w-xs">
                 💡 {round.hint}
               </div>
             )}
           </>
         ) : (
           <div className="animate-fadeUp flex flex-col items-center gap-5 w-full max-w-sm">
-            <div className={`rounded-3xl p-6 border-2 w-full text-center ${correct ? 'bg-amber/20 border-amber' : 'bg-rose/10 border-rose/30'}`}>
-              <p className="text-4xl mb-2">{correct ? '🌟' : '💛'}</p>
-              <p className="font-serif text-bark text-2xl font-bold">{correct ? 'Exactly right!' : 'Good try!'}</p>
-              {!correct && (
-                <p className="text-bark/70 text-xl mt-2">
-                  The pattern continues with <strong>{round.answer}</strong>
-                </p>
-              )}
+            <div className={`rounded-3xl p-6 border-2 w-full text-center shadow-sm ${correct ? 'bg-emerald-50 border-emerald-400' : 'bg-sand/40 border-sand'}`}>
+              <p className="text-4xl mb-1.5">{correct ? '🌟' : '💛'}</p>
+              <p className="font-serif text-bark text-3xl font-bold">
+                {correct ? 'Exactly right!' : 'Good try!'}
+              </p>
+              <p className="text-forest font-bold text-lg mt-1">
+                {correct ? `The sequence continues with ${round.answer}` : `The pattern goes with ${round.answer}`}
+              </p>
+              <p className="text-bark/75 text-base mt-2 leading-relaxed font-medium">{round.hint}</p>
             </div>
             <BigBtn onClick={next} color="forest" full>Next pattern →</BigBtn>
           </div>
@@ -2245,7 +2387,7 @@ function SequenceGame({ onBack, soundEnabled, recordActivity }: { onBack: () => 
   const [shuffledSteps, setShuffledSteps] = useState(() => shuffled(task.steps.map((s, i) => ({ ...s, order: i }))))
   const [order, setOrder] = useState<number[]>([]) // indices in shuffledSteps, in user selection order
   const [phase, setPhase] = useState<'placing' | 'result'>('placing')
-  const { celebrating, message, celebKey, celebrate } = useCelebration(soundEnabled)
+  const { celebrating, message, sub, celebKey, celebrate } = useCelebration(soundEnabled)
 
   const tap = (i: number) => {
     if (phase !== 'placing' || order.includes(i)) return
@@ -2256,7 +2398,7 @@ function SequenceGame({ onBack, soundEnabled, recordActivity }: { onBack: () => 
       const isCorrect = next.every((stepIdx, pos) => shuffledSteps[stepIdx].order === pos)
       if (isCorrect) {
         if (soundEnabled) playSoundEffect('fanfare')
-        celebrate()
+        celebrate('Sequence Master! 🌟', `Wonderful! You remembered the exact sequence for ${task.title}!`, task.title)
       } else {
         if (soundEnabled) playSoundEffect('undo')
       }
@@ -2294,18 +2436,18 @@ function SequenceGame({ onBack, soundEnabled, recordActivity }: { onBack: () => 
 
   return (
     <div className="min-h-screen flex flex-col bg-parchment">
-      <CelebrationOverlay key={celebKey} active={celebrating} message={message} />
+      <CelebrationOverlay key={celebKey} active={celebrating} message={message} sub={sub} />
       <BackBar onBack={onBack} />
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-6 gap-5 text-center animate-fadeUp max-w-md mx-auto w-full">
-        <span className="text-[90px] leading-none">{task.emoji}</span>
+        <span className="text-[90px] leading-none drop-shadow-sm">{task.emoji}</span>
         <div>
           <p className="font-serif text-bark text-4xl font-bold leading-tight">{task.title}</p>
-          <p className="text-bark/60 text-lg mt-2 font-medium">
+          <p className="text-bark/70 text-lg mt-1.5 font-medium">
             {phase === 'placing'
-              ? `Tap step ${order.length + 1} of ${task.steps.length}:`
+              ? `Tap step ${order.length + 1} of ${task.steps.length} in natural order:`
               : correct
-              ? 'Perfect sequence!'
-              : "Let's review together!"}
+              ? '✨ Perfect chronological sequence!'
+              : "Let's review the steps together!"}
           </p>
         </div>
 
@@ -2321,17 +2463,17 @@ function SequenceGame({ onBack, soundEnabled, recordActivity }: { onBack: () => 
                 disabled={tapped || phase === 'result'}
                 className={`flex items-center gap-4 p-4 rounded-2xl border-2 text-left transition-all active:scale-98 min-h-[75px] shadow-sm ${
                   phase === 'result' && correct && tapped
-                    ? 'bg-forest/10 border-forest'
+                    ? 'bg-emerald-50 border-emerald-500 ring-2 ring-emerald-300'
                     : phase === 'result' && !correct && tapped
-                    ? 'bg-rose/10 border-rose/30'
+                    ? 'bg-amber/15 border-amber/40'
                     : tapped
-                    ? 'bg-amber/20 border-amber shadow-md'
-                    : 'bg-white border-sand hover:border-amber/50'
+                    ? 'bg-forest/10 border-forest text-forest shadow-md'
+                    : 'bg-white border-sand hover:border-forest/50'
                 }`}
               >
                 <div
                   className={`w-11 h-11 rounded-full flex items-center justify-center text-xl font-bold shrink-0 shadow-sm ${
-                    tapped ? 'bg-amber text-bark' : 'bg-sand/60 text-bark/40'
+                    tapped ? 'bg-forest text-white' : 'bg-sand/60 text-bark/40'
                   }`}
                 >
                   {tapped ? tapPos + 1 : '—'}
@@ -2347,31 +2489,42 @@ function SequenceGame({ onBack, soundEnabled, recordActivity }: { onBack: () => 
         {phase === 'placing' && order.length > 0 && (
           <button
             onClick={undoLastStep}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold text-bark/60 bg-sand/40 hover:bg-sand border border-sand transition-all active:scale-95"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold text-bark/70 bg-sand/50 hover:bg-sand border border-sand transition-all active:scale-95 shadow-xs"
           >
-            <span>↩</span> Undo Last Step
+            <span>↩ Undo Last Step</span>
           </button>
         )}
 
         {phase === 'result' && (
-          <div className="animate-fadeUp flex flex-col items-center gap-4 w-full">
+          <div className="animate-fadeUp flex flex-col items-center gap-4 w-full mt-2">
             {correct ? (
               <>
-                <div className="bg-amber/20 rounded-3xl p-5 border border-amber/40 w-full text-center">
-                  <p className="text-4xl mb-1">🌟</p>
-                  <p className="font-serif text-bark text-2xl font-bold">Perfect order!</p>
-                  <p className="text-bark/70 text-lg mt-1">Your understanding of this daily rhythm is wonderful.</p>
+                <div className="bg-emerald-50/90 rounded-3xl p-6 border-2 border-emerald-400 w-full text-center shadow-sm">
+                  <p className="text-4xl mb-1.5">🌟</p>
+                  <p className="font-serif text-bark text-2xl font-bold">Perfect Order!</p>
+                  <p className="text-bark/80 text-base mt-1.5 font-medium leading-relaxed">
+                    You remembered the whole daily routine flawlessly. Your mind is calm and clear!
+                  </p>
                 </div>
                 <BigBtn onClick={nextTask} color="forest" full>Try next daily task →</BigBtn>
               </>
             ) : (
               <>
-                <div className="bg-amber/10 rounded-3xl p-5 border border-amber/30 w-full text-center">
-                  <p className="text-4xl mb-1">💛</p>
-                  <p className="font-serif text-bark text-2xl font-bold">Good effort!</p>
-                  <p className="text-bark/70 text-lg mt-1">Practice makes everything feel familiar and easy.</p>
+                <div className="bg-amber/15 rounded-3xl p-5 border border-amber/40 w-full text-left shadow-sm">
+                  <p className="font-serif text-bark text-xl font-bold text-center mb-3">Here is the natural order:</p>
+                  <div className="flex flex-col gap-2">
+                    {task.steps.map((st, idx) => (
+                      <div key={idx} className="flex items-center gap-3 text-base text-bark font-medium bg-white/80 p-2.5 rounded-xl border border-sand/40">
+                        <span className="w-7 h-7 rounded-full bg-forest text-white flex items-center justify-center text-xs font-bold shrink-0">{idx + 1}</span>
+                        <span>{st.emoji} {st.text}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <BigBtn onClick={reset} color="amber" full>Try again</BigBtn>
+                <div className="flex flex-col gap-3 w-full">
+                  <BigBtn onClick={reset} color="amber" full>Try again 🔄</BigBtn>
+                  <BigBtn onClick={nextTask} color="white" full>Next daily task →</BigBtn>
+                </div>
               </>
             )}
           </div>
