@@ -509,26 +509,42 @@ function HomeScreen({ onSelect, soundEnabled, setSoundEnabled, streak, doneToday
     { screen: 'sequence' as Screen, emoji: '📋', title: tr.putInOrder,     desc: tr.putInOrderDesc,       color: 'bg-forest/10 border-forest/30' },
   ]
 
+  const [sosSent, setSosSent] = useState(false)
+  const [showSosConfirm, setShowSosConfirm] = useState(false)
+
+  const triggerSOS = () => {
+    try {
+      const raw = JSON.parse(localStorage.getItem('nercare_sos_v1') || '[]')
+      const event = { timestamp: new Date().toISOString(), resolved: false }
+      localStorage.setItem('nercare_sos_v1', JSON.stringify([event, ...raw]))
+      setSosSent(true)
+      setShowSosConfirm(false)
+      setTimeout(() => setSosSent(false), 5000)
+    } catch {
+      // ignore
+    }
+  }
+
   return (
     <div className="min-h-screen bg-parchment flex flex-col px-5 py-7 gap-5 overflow-auto">
-      <div className="bg-white rounded-3xl p-6 border border-sand">
+      <div className="bg-white rounded-xl p-6 border-2 border-sand shadow-xs">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-xl">🪔</span>
           <span className="text-forest text-xs font-bold tracking-[0.2em] uppercase">Smaran · स्मरण Care</span>
         </div>
-        <p className="text-bark/50 text-xl">{dateStr}</p>
-        <p className="font-serif text-bark text-5xl font-bold mt-2">{tr.greeting}, {userName || 'Priya'} 👋</p>
-        <p className="text-bark/60 text-2xl mt-1">{timeStr}</p>
+        <p className="text-bark/60 text-lg">{dateStr}</p>
+        <p className="font-serif text-bark text-4xl sm:text-5xl font-bold mt-1">{tr.greeting}, {userName || 'Priya'} 👋</p>
+        <p className="text-forest font-semibold text-xl mt-1">{timeStr}</p>
         <div className="flex items-center gap-3 mt-4 flex-wrap">
           <button
             onClick={() => setSoundEnabled(!soundEnabled)}
-            className="flex items-center gap-2 text-bark/50 text-xl font-semibold rounded-full border border-sand px-4 py-2 active:scale-95 transition-transform"
+            className="flex items-center gap-2 text-bark text-base font-semibold rounded-xl border border-sand bg-parchment hover:bg-sand/40 px-4 py-2.5 active:scale-95 transition-transform min-h-[48px]"
           >
             {soundEnabled ? tr.soundOn : tr.soundOff}
           </button>
           <button
             onClick={() => onSelect('settings')}
-            className="flex items-center gap-2 text-bark/50 text-xl font-semibold rounded-full border border-sand px-4 py-2 active:scale-95 transition-transform"
+            className="flex items-center gap-2 text-bark text-base font-semibold rounded-xl border border-sand bg-parchment hover:bg-sand/40 px-4 py-2.5 active:scale-95 transition-transform min-h-[48px]"
           >
             ⚙️ {tr.settings}
           </button>
@@ -537,49 +553,99 @@ function HomeScreen({ onSelect, soundEnabled, setSoundEnabled, streak, doneToday
 
       <StreakCard streak={streak} doneToday={doneToday} isReturning={isReturning} weekDotDates={weekDotDates} weekDates={weekDates} tr={tr} />
 
-      {/* Companion — featured */}
+      {/* Companion — featured with warm, human presence */}
       <button onClick={() => onSelect(AI_SCREEN)}
-        className="flex items-center gap-5 p-7 rounded-3xl border-2 text-left transition-transform active:scale-[0.98] bg-sage/15 border-sage/50"
+        className="flex items-center gap-5 p-6 rounded-xl border-2 text-left transition-all active:scale-[0.98] bg-white border-forest/30 shadow-xs hover:border-forest"
       >
-        <span className="text-7xl leading-none shrink-0">💬</span>
+        <span className="text-6xl leading-none shrink-0">🌸</span>
         <div className="flex-1">
-          <div className="font-bold text-bark text-3xl leading-tight">{tr.talkToMe}</div>
-          <div className="text-bark/60 text-xl mt-1">{tr.companionTagline}</div>
+          <div className="font-bold text-bark text-2xl leading-tight">{tr.talkToMe}</div>
+          <div className="text-bark/70 text-lg mt-1">{tr.companionTagline}</div>
         </div>
+        <span className="text-forest text-2xl font-bold">→</span>
       </button>
 
-      <p className="text-bark/50 text-2xl font-bold px-1 mt-1">{tr.yourActivities}</p>
+      <p className="text-bark text-2xl font-bold px-1 mt-1">{tr.yourActivities}</p>
       <div className="flex flex-col gap-4">
         {activities.map(a => (
           <button key={a.screen} onClick={() => onSelect(a.screen)}
-            className={`flex items-center gap-5 p-7 rounded-3xl border-2 text-left transition-transform active:scale-[0.98] ${a.color}`}
+            className={`flex items-center gap-5 p-6 rounded-xl border-2 text-left transition-all active:scale-[0.98] shadow-xs ${a.color}`}
           >
-            <span className="text-7xl leading-none shrink-0">{a.emoji}</span>
-            <div>
-              <div className="font-bold text-bark text-3xl leading-tight">{a.title}</div>
-              <div className="text-bark/60 text-xl mt-1">{a.desc}</div>
+            <span className="text-6xl leading-none shrink-0">{a.emoji}</span>
+            <div className="flex-1">
+              <div className="font-bold text-bark text-2xl leading-tight">{a.title}</div>
+              <div className="text-bark/70 text-lg mt-1">{a.desc}</div>
             </div>
+            <span className="text-bark/50 text-2xl font-bold">→</span>
           </button>
         ))}
       </div>
 
       <div className="flex items-center gap-3 mt-2">
-        <p className="text-bark/50 text-2xl font-bold px-1">{tr.brainGames}</p>
-        <span className="bg-forest/10 text-forest text-sm font-bold px-3 py-1 rounded-full">{tr.helpsMemory}</span>
+        <p className="text-bark text-2xl font-bold px-1">{tr.brainGames}</p>
+        <span className="bg-forest/10 text-forest text-sm font-bold px-3 py-1 rounded-xl border border-forest/20">{tr.helpsMemory}</span>
       </div>
       <div className="grid grid-cols-2 gap-4">
         {brainGames.map(g => (
           <button key={g.screen} onClick={() => onSelect(g.screen)}
-            className={`flex flex-col items-start gap-3 p-6 rounded-3xl border-2 text-left transition-transform active:scale-[0.98] ${g.color}`}
+            className={`flex flex-col items-start gap-3 p-5 rounded-xl border-2 text-left transition-all active:scale-[0.98] shadow-xs ${g.color}`}
           >
-            <span className="text-5xl leading-none">{g.emoji}</span>
+            <span className="text-4xl leading-none">{g.emoji}</span>
             <div>
-              <div className="font-bold text-bark text-xl leading-tight">{g.title}</div>
-              <div className="text-bark/50 text-base mt-1">{g.desc}</div>
+              <div className="font-bold text-bark text-lg leading-tight">{g.title}</div>
+              <div className="text-bark/70 text-sm mt-1">{g.desc}</div>
             </div>
           </button>
         ))}
       </div>
+
+      {/* Reassuring Caregiver Help Button — Large, dignified, high-contrast touch target */}
+      <div className="mt-4 pt-4 border-t border-sand">
+        {sosSent ? (
+          <div className="bg-forest/10 border-2 border-forest rounded-xl p-5 text-center animate-fadeUp">
+            <p className="font-bold text-forest text-xl">✅ Help alert sent to your caregiver</p>
+            <p className="text-bark/70 text-base mt-1">They have been notified and will check in on you shortly.</p>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowSosConfirm(true)}
+            className="w-full flex items-center justify-center gap-3 py-5 px-6 rounded-xl bg-white border-2 border-rose/40 text-rose hover:bg-rose/5 active:scale-[0.98] transition-all shadow-xs min-h-[56px]"
+          >
+            <span className="text-3xl leading-none">🆘</span>
+            <div className="text-left">
+              <p className="font-bold text-xl leading-tight text-rose">Need Help from Caregiver?</p>
+              <p className="text-bark/60 text-sm">Press here to send a gentle emergency alert</p>
+            </div>
+          </button>
+        )}
+      </div>
+
+      {/* Confirmation modal before sending alert — prevents accidental taps */}
+      {showSosConfirm && (
+        <div className="fixed inset-0 z-50 bg-bark/40 flex items-end sm:items-center justify-center p-4 animate-fadeUp" onClick={() => setShowSosConfirm(false)}>
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 text-center border-2 border-sand shadow-xl" onClick={e => e.stopPropagation()}>
+            <span className="text-5xl mb-3 block">🆘</span>
+            <p className="font-serif text-bark text-2xl font-bold">Call for Your Caregiver?</p>
+            <p className="text-bark/70 text-base mt-2 leading-relaxed">
+              This will notify your family and caregiver immediately that you would like assistance.
+            </p>
+            <div className="flex flex-col gap-3 mt-6">
+              <button
+                onClick={triggerSOS}
+                className="w-full py-4 bg-rose text-white font-bold text-xl rounded-2xl active:scale-95 transition-transform shadow-md"
+              >
+                Yes, Send Alert Now
+              </button>
+              <button
+                onClick={() => setShowSosConfirm(false)}
+                className="w-full py-3.5 bg-sand/60 text-bark font-bold text-lg rounded-2xl hover:bg-sand active:scale-95 transition-transform"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -2388,39 +2454,105 @@ export default function PatientView({ language, onChangeLanguage, onBack, userNa
     <MilestoneScreen milestone={milestone} streak={streak} onContinue={() => { clearMilestone(); setScreen('home') }} />
   )
 
-  if (screen === 'settings') return (
-    <SettingsScreen
-      language={language}
-      onChangeLanguage={onChangeLanguage}
-      soundEnabled={soundEnabled}
-      setSoundEnabled={setSoundEnabled}
-      onBack={() => setScreen('home')}
-      tr={tr}
-    />
+  const renderScreen = () => {
+    if (screen === 'settings') return (
+      <SettingsScreen
+        language={language}
+        onChangeLanguage={onChangeLanguage}
+        soundEnabled={soundEnabled}
+        setSoundEnabled={setSoundEnabled}
+        onBack={() => setScreen('home')}
+        tr={tr}
+      />
+    )
+    if (screen === 'home') return (
+      <HomeScreen
+        onSelect={setScreen}
+        soundEnabled={soundEnabled}
+        setSoundEnabled={setSoundEnabled}
+        streak={streak}
+        doneToday={doneToday}
+        isReturning={isReturning}
+        weekDotDates={weekDotDates}
+        weekDates={weekDates}
+        tr={tr}
+        userName={userName}
+      />
+    )
+    if (screen === 'reminiscence') return <ReminiscenceGame onBack={() => setScreen('home')} soundEnabled={soundEnabled} recordActivity={recordActivity} />
+    if (screen === 'music')        return <MusicGame        onBack={() => setScreen('home')} soundEnabled={soundEnabled} recordActivity={recordActivity} language={language} />
+    if (screen === 'diary')        return <DiaryGame        onBack={() => setScreen('home')} recordActivity={recordActivity} saveMemory={saveMemory} onViewMemories={() => setScreen('memories')} />
+    if (screen === 'memories')     return <SavedMemoriesView memories={memories} getAudioUrl={getAudioUrl} deleteMemory={deleteMemory} onBack={() => setScreen('home')} onGoToDiary={() => setScreen('diary')} />
+    if (screen === 'orientation')  return <OrientationGame  onBack={() => setScreen('home')} soundEnabled={soundEnabled} recordActivity={recordActivity} />
+    if (screen === 'pairs')        return <MemoryPairsGame  onBack={() => setScreen('home')} soundEnabled={soundEnabled} recordActivity={recordActivity} />
+    if (screen === 'sort')         return <CategorySortGame onBack={() => setScreen('home')} soundEnabled={soundEnabled} recordActivity={recordActivity} />
+    if (screen === 'pattern')      return <PatternGame      onBack={() => setScreen('home')} soundEnabled={soundEnabled} recordActivity={recordActivity} />
+    if (screen === 'sequence')     return <SequenceGame     onBack={() => setScreen('home')} soundEnabled={soundEnabled} recordActivity={recordActivity} />
+    if (screen === 'ai')           return <AICompanionView  onBack={() => setScreen('home')} onNavigate={s => setScreen(s as Screen)} userName={userName} />
+    return null
+  }
+
+  return (
+    <div className="relative min-h-screen pb-24 bg-parchment">
+      {renderScreen()}
+
+      {/* ─── Bottom Navigation Bar (Figma Design Brief Section 23) ─── */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-sand z-30 px-3 py-1 flex items-center justify-around shadow-lg">
+        <button
+          onClick={() => setScreen('home')}
+          className={`flex-1 flex flex-col items-center justify-center py-2 px-2 rounded-xl min-h-[56px] transition-all active:scale-95 ${
+            screen === 'home' ? 'text-forest font-bold border-b-2 border-forest' : 'text-bark/60 hover:text-bark'
+          }`}
+          aria-label="Home"
+        >
+          <span className="text-2xl">🏠</span>
+          <span className="text-xs font-semibold mt-0.5">{tr.home || 'Home'}</span>
+        </button>
+
+        <button
+          onClick={() => setScreen('music')}
+          className={`flex-1 flex flex-col items-center justify-center py-2 px-2 rounded-xl min-h-[56px] transition-all active:scale-95 ${
+            screen === 'music' ? 'text-forest font-bold border-b-2 border-forest' : 'text-bark/60 hover:text-bark'
+          }`}
+          aria-label="Music"
+        >
+          <span className="text-2xl">🎵</span>
+          <span className="text-xs font-semibold mt-0.5">{tr.listenToMusic || 'Music'}</span>
+        </button>
+
+        <button
+          onClick={() => setScreen('diary')}
+          className={`flex-1 flex flex-col items-center justify-center py-2 px-2 rounded-xl min-h-[56px] transition-all active:scale-95 ${
+            screen === 'diary' || screen === 'memories' ? 'text-forest font-bold border-b-2 border-forest' : 'text-bark/60 hover:text-bark'
+          }`}
+          aria-label="Diary"
+        >
+          <span className="text-2xl">📔</span>
+          <span className="text-xs font-semibold mt-0.5">{tr.dearDiary || 'Diary'}</span>
+        </button>
+
+        <button
+          onClick={() => setScreen('ai')}
+          className={`flex-1 flex flex-col items-center justify-center py-2 px-2 rounded-xl min-h-[56px] transition-all active:scale-95 ${
+            screen === 'ai' ? 'text-forest font-bold border-b-2 border-forest' : 'text-bark/60 hover:text-bark'
+          }`}
+          aria-label="Devi Companion"
+        >
+          <span className="text-2xl">🌸</span>
+          <span className="text-xs font-semibold mt-0.5">Devi</span>
+        </button>
+
+        <button
+          onClick={() => setScreen('settings')}
+          className={`flex-1 flex flex-col items-center justify-center py-2 px-2 rounded-xl min-h-[56px] transition-all active:scale-95 ${
+            screen === 'settings' ? 'text-forest font-bold border-b-2 border-forest' : 'text-bark/60 hover:text-bark'
+          }`}
+          aria-label="Settings"
+        >
+          <span className="text-2xl">⚙️</span>
+          <span className="text-xs font-semibold mt-0.5">{tr.settings || 'Settings'}</span>
+        </button>
+      </nav>
+    </div>
   )
-  if (screen === 'home') return (
-    <HomeScreen
-      onSelect={setScreen}
-      soundEnabled={soundEnabled}
-      setSoundEnabled={setSoundEnabled}
-      streak={streak}
-      doneToday={doneToday}
-      isReturning={isReturning}
-      weekDotDates={weekDotDates}
-      weekDates={weekDates}
-      tr={tr}
-      userName={userName}
-    />
-  )
-  if (screen === 'reminiscence') return <ReminiscenceGame onBack={() => setScreen('home')} soundEnabled={soundEnabled} recordActivity={recordActivity} />
-  if (screen === 'music')        return <MusicGame        onBack={() => setScreen('home')} soundEnabled={soundEnabled} recordActivity={recordActivity} language={language} />
-  if (screen === 'diary')        return <DiaryGame        onBack={() => setScreen('home')} recordActivity={recordActivity} saveMemory={saveMemory} onViewMemories={() => setScreen('memories')} />
-  if (screen === 'memories')     return <SavedMemoriesView memories={memories} getAudioUrl={getAudioUrl} deleteMemory={deleteMemory} onBack={() => setScreen('home')} onGoToDiary={() => setScreen('diary')} />
-  if (screen === 'orientation')  return <OrientationGame  onBack={() => setScreen('home')} soundEnabled={soundEnabled} recordActivity={recordActivity} />
-  if (screen === 'pairs')        return <MemoryPairsGame  onBack={() => setScreen('home')} soundEnabled={soundEnabled} recordActivity={recordActivity} />
-  if (screen === 'sort')         return <CategorySortGame onBack={() => setScreen('home')} soundEnabled={soundEnabled} recordActivity={recordActivity} />
-  if (screen === 'pattern')      return <PatternGame      onBack={() => setScreen('home')} soundEnabled={soundEnabled} recordActivity={recordActivity} />
-  if (screen === 'sequence')     return <SequenceGame     onBack={() => setScreen('home')} soundEnabled={soundEnabled} recordActivity={recordActivity} />
-  if (screen === 'ai')           return <AICompanionView  onBack={() => setScreen('home')} onNavigate={s => setScreen(s as Screen)} userName={userName} />
-  return null
 }

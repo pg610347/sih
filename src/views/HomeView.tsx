@@ -55,75 +55,95 @@ interface Props {
   language: Language
   onChangeLanguage: (l: Language) => void
   onSelectRole: (r: Role) => void
+  onQuickLogin?: (role: Role, name: string) => void
 }
 
-export default function HomeView({ language, onChangeLanguage, onSelectRole }: Props) {
+export default function HomeView({ language, onChangeLanguage, onSelectRole, onQuickLogin }: Props) {
   const lang = LANGS[language]
 
   return (
-    <div className="min-h-full flex flex-col lg:flex-row overflow-auto">
+    <div className="min-h-full flex flex-col lg:flex-row overflow-auto bg-parchment">
       {/* Left decorative panel */}
-      <div className="bg-forest-dark lg:w-5/12 xl:w-2/5 flex flex-col justify-between p-8 lg:p-12 relative overflow-hidden min-h-64 lg:min-h-full">
+      <div className="bg-[#094738] text-parchment lg:w-5/12 xl:w-2/5 flex flex-col justify-between p-8 lg:p-12 relative overflow-hidden min-h-64 lg:min-h-full">
         <NERPattern />
         <div className="relative z-10">
-          <div className="flex items-center gap-2 mb-8">
+          <div className="flex items-center gap-2.5 mb-8">
             <span className="text-2xl">🪔</span>
-            <span className="text-amber text-xs font-bold tracking-[0.25em] uppercase">Smaran · Dementia Care</span>
+            <span className="text-amber font-bold text-xs tracking-[0.25em] uppercase">Smaran · स्मरण Care</span>
           </div>
           <div className="mb-6">
-            <p className="text-sage-light text-sm mb-1 tracking-wide">
+            <p className="text-white/80 text-sm mb-1 tracking-wide font-medium">
               {lang.greeting} —
             </p>
-            <h1 className="font-serif text-parchment text-4xl lg:text-5xl xl:text-6xl leading-tight">
+            <h1 className="font-serif text-white text-4xl lg:text-5xl xl:text-6xl leading-tight">
               A caring<br />
               <span className="text-amber">companion</span><br />
               for you.
             </h1>
           </div>
-          <p className="text-sage-light/80 text-base leading-relaxed max-w-xs">
-            Joyful activities, memory care, and connection — designed for the grandmothers and grandfathers of Northeast India.
+          <p className="text-white/80 text-base leading-relaxed max-w-sm">
+            Gentle cognitive engagement, familiar reminiscence, and dignity-first habit building designed for the elders of Northeast India.
           </p>
         </div>
 
-        <div className="relative z-10 mt-8 lg:mt-0">
-          <div className="flex gap-5 text-3xl mb-5">
-            <span title="Oil lamp — Diya">🪔</span>
-            <span title="Bamboo basket — Jhapi">🧺</span>
-            <span title="Grinding stone — Silbatta">🪨</span>
-            <span title="Traditional music">🎵</span>
-            <span title="Rice — staple of NER">🌾</span>
+        <div className="relative z-10 mt-8 lg:mt-0 pt-6 border-t border-white/15">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-sage" />
+            <p className="text-white/90 text-sm font-semibold">Community-Centered Dementia Care</p>
           </div>
-          <p className="text-sage-light/40 text-xs tracking-widest">
-            Assam · Meghalaya · Manipur · Mizoram<br />
-            Nagaland · Sikkim · Tripura · Arunachal Pradesh
+          <p className="text-white/60 text-xs leading-relaxed">
+            Assam · Meghalaya · Manipur · Mizoram · Nagaland · Sikkim · Tripura · Arunachal Pradesh
           </p>
         </div>
       </div>
 
       {/* Right panel */}
       <div className="flex-1 flex flex-col justify-center p-8 lg:p-14 bg-parchment">
-        {/* Current language indicator with change link */}
-        <div className="mb-10 flex items-center gap-3">
-          <span className="text-bark/50 text-sm font-bold">
-            {LANGS[language].nativeName}
-          </span>
-          {LANG_OPTIONS.find(o => o.lang === language)?.romanName && (
-            <span className="text-bark/30 text-sm">
-              · {LANG_OPTIONS.find(o => o.lang === language)?.romanName}
-            </span>
+        {/* Top bar: Current language indicator + Direct preview tabs */}
+        <div className="mb-8 flex items-center justify-between flex-wrap gap-4 border-b border-sand pb-4">
+          <div className="flex items-center gap-2 text-sm text-bark">
+            <span className="font-bold">{LANGS[language].nativeName}</span>
+            {LANG_OPTIONS.find(o => o.lang === language)?.romanName && (
+              <span className="text-muted">· {LANG_OPTIONS.find(o => o.lang === language)?.romanName}</span>
+            )}
+            <button
+              onClick={() => onChangeLanguage(language)}
+              className="ml-2 text-forest font-semibold hover:underline flex items-center gap-1 text-sm"
+            >
+              🌐 Change Language
+            </button>
+          </div>
+
+          {/* Quick Demo Switcher for fast evaluation */}
+          {onQuickLogin && (
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-muted font-semibold">Instant Preview:</span>
+              <button
+                onClick={() => onQuickLogin('patient', 'Priya Devi Borah')}
+                className="px-2.5 py-1 rounded-lg bg-white border border-sand hover:border-forest text-bark font-semibold transition-all active:scale-95"
+              >
+                👵 Patient
+              </button>
+              <button
+                onClick={() => onQuickLogin('caregiver', 'Rahul Borah')}
+                className="px-2.5 py-1 rounded-lg bg-white border border-sand hover:border-terracotta text-bark font-semibold transition-all active:scale-95"
+              >
+                🤝 Caregiver
+              </button>
+              <button
+                onClick={() => onQuickLogin('doctor', 'Dr. Ananya Sarma')}
+                className="px-2.5 py-1 rounded-lg bg-white border border-sand hover:border-plum text-bark font-semibold transition-all active:scale-95"
+              >
+                🩺 Doctor
+              </button>
+            </div>
           )}
-          <button
-            onClick={() => onChangeLanguage(language)}
-            className="ml-1 text-forest/70 text-sm font-semibold hover:text-forest transition-colors flex items-center gap-1"
-          >
-            🌐 Change
-          </button>
         </div>
 
         {/* Role selection */}
         <div className="mb-6">
-          <h2 className="font-serif text-bark text-2xl mb-1">Who are you today?</h2>
-          <p className="text-bark/50 text-sm">Select your role to continue</p>
+          <h2 className="font-serif text-bark text-3xl font-bold mb-1">Who are you today?</h2>
+          <p className="text-muted text-base">Select your role to access your personalized workspace</p>
         </div>
 
         <div className="grid gap-4 max-w-lg">
@@ -131,27 +151,32 @@ export default function HomeView({ language, onChangeLanguage, onSelectRole }: P
             <button
               key={card.role}
               onClick={() => onSelectRole(card.role)}
-              className={`flex items-center gap-5 p-5 rounded-2xl border-2 text-left transition-all duration-200 active:scale-95 animate-fadeUp ${card.bg} ${card.border} ${card.hoverBg}`}
-              style={{ animationDelay: `${i * 0.1}s`, opacity: 0 }}
+              className={`flex items-center gap-5 p-5 rounded-xl border-2 text-left transition-all duration-200 active:scale-[0.98] min-h-[72px] bg-white border-sand hover:border-forest hover:shadow-sm ${card.hoverBg}`}
+              style={{ animationDelay: `${i * 0.1}s` }}
             >
-              <span className="text-4xl w-16 h-16 flex items-center justify-center rounded-xl bg-white shrink-0 border border-sand/60">
+              <span className="text-3xl w-14 h-14 flex items-center justify-center rounded-xl bg-parchment shrink-0 border border-sand">
                 {card.emoji}
               </span>
               <div>
                 <div className="font-bold text-bark text-lg leading-tight">{card.title}</div>
-                <div className="text-bark/60 text-sm mt-0.5">{card.subtitle}</div>
+                <div className="text-muted text-sm mt-0.5">{card.subtitle}</div>
               </div>
-              <span className="ml-auto text-bark/30 text-xl shrink-0">→</span>
+              <span className="ml-auto text-forest font-bold text-xl shrink-0">→</span>
             </button>
           ))}
         </div>
 
-        <div className="mt-10 pt-8 border-t border-sand">
-          <div className="flex flex-wrap gap-4 text-xs text-bark/40 font-semibold tracking-wider">
-            <span>🔒 HIPAA-COMPLIANT</span>
-            <span>🌐 OFFLINE-CAPABLE</span>
-            <span>🗣 NER MULTILINGUAL</span>
-            <span>🛡 DATA STORED IN INDIA</span>
+        <div className="mt-10 pt-6 border-t border-sand">
+          <div className="flex flex-wrap gap-3 text-xs text-muted font-semibold">
+            <span className="flex items-center gap-1.5 bg-white px-3 py-2 rounded-xl border border-sand">
+              🔒 Private & Secure
+            </span>
+            <span className="flex items-center gap-1.5 bg-white px-3 py-2 rounded-xl border border-sand">
+              📶 Works Offline
+            </span>
+            <span className="flex items-center gap-1.5 bg-white px-3 py-2 rounded-xl border border-sand">
+              🇮🇳 Dedicated to Northeast Indian Elders
+            </span>
           </div>
         </div>
       </div>

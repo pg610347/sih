@@ -20,6 +20,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       tailwindcss(),
+      apiDevPlugin(),
       figmaSiteConfiguration(siteConfiguration),
       figmaErrorOverlayReplay(),
       figmaReactRefreshBoundaryFallback(),
@@ -350,6 +351,75 @@ function figmaMakeKitPlugin(options: { storiesGlob: string | string[] }): Plugin
           res.end(await server.transformIndexHtml(url, HTML_BOOTSTRAP))
         } catch (err) {
           next(err as Error)
+        }
+      })
+    },
+  }
+}
+
+function apiDevPlugin(): Plugin {
+  return {
+    name: 'api-dev-middleware',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url || !req.url.startsWith('/api/')) return next()
+
+        const urlParts = req.url.split('?')[0].split('/')
+        const endpoint = urlParts[2]
+
+        let body: any = undefined
+        if (req.method === 'POST') {
+          const chunks: Buffer[] = []
+          for await (const chunk of req) {
+            chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+          }
+          const raw = Buffer.concat(chunks).toString('utf-8')
+          try {
+            body = JSON.parse(raw)
+          } catch {
+            body = raw
+          }
+        }
+
+        const mockReq: any = {
+          method: req.method,
+          headers: req.headers,
+          url: req.url,
+          body,
+          socket: req.socket,
+        }
+
+        const mockRes: any = {
+          setHeader: (k: string, v: string) => res.setHeader(k, v),
+          status: (code: number) => {
+            res.statusCode = code
+            return mockRes
+          },
+          json: (data: any) => {
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify(data))
+          },
+          end: (data?: any) => res.end(data),
+        }
+
+        try {
+          if (endpoint === 'gemini') {
+            const geminiHandler = (await import('./api/gemini.ts')).default
+            return await geminiHandler(mockReq, mockRes)
+          } else if (endpoint === 'login') {
+            const loginHandler = (await import('./api/login.ts')).default
+            return await loginHandler(mockReq, mockRes)
+          } else if (endpoint === 'register') {
+            const registerHandler = (await import('./api/register.ts')).default
+            return await registerHandler(mockReq, mockRes)
+          } else {
+            return next()
+          }
+        } catch (err: any) {
+          console.error('[API Dev Error]', err)
+          res.statusCode = 500
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ error: err.message || 'Internal API Error' }))
         }
       })
     },

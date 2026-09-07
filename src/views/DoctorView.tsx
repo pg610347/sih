@@ -82,7 +82,7 @@ let clinId = 0
 
 function ClinicalAssistant({ onJumpTo }: { onJumpTo: (tab: DoctorTab) => void }) {
   const [messages, setMessages] = useState<ClinMsg[]>([
-    { id: 0, role: 'ai', text: "Hello, Doctor. 🤖 I am the Clinical Assistant. I have access to Priya's full clinical record. Ask me for a patient summary, diary analysis, medication adherence report, engagement trends, or nutritional assessment.\n\n🏷️ AI-assisted insight · Requires professional review" }
+    { id: 0, role: 'ai', text: "Hello, Doctor. 📋 Clinical Decision Support is ready to assist with Priya's longitudinal record. Ask for a patient summary, diary analysis, medication adherence report, engagement trends, or nutritional assessment.\n\n🏷️ Clinical insight support · Requires professional physician validation" }
   ])
   const [input, setInput] = useState('')
   const [thinking, setThinking] = useState(false)
@@ -119,8 +119,8 @@ function ClinicalAssistant({ onJumpTo }: { onJumpTo: (tab: DoctorTab) => void })
       <div className="flex items-center gap-3 mb-4 p-4 bg-forest/5 rounded-2xl border border-forest/20">
         <div className="w-10 h-10 rounded-full bg-forest/10 border border-forest/20 flex items-center justify-center text-xl shrink-0">🩺</div>
         <div>
-          <p className="font-bold text-bark">Clinical Assistant</p>
-          <p className="text-bark/50 text-xs">AI-assisted · All outputs require professional review before clinical action</p>
+          <p className="font-bold text-bark">Clinical Decision Support</p>
+          <p className="text-bark/50 text-xs">Assisted review · All outputs require professional review before clinical action</p>
         </div>
       </div>
 
@@ -131,7 +131,7 @@ function ClinicalAssistant({ onJumpTo }: { onJumpTo: (tab: DoctorTab) => void })
               <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-line ${
                 msg.role === 'user' ? 'bg-forest-dark text-parchment rounded-br-sm' : 'bg-white border border-sand text-bark rounded-bl-sm'
               }`}>
-                {msg.role === 'ai' && <span className="text-xs text-bark/40 font-bold block mb-1">🤖 Clinical Assistant</span>}
+                {msg.role === 'ai' && <span className="text-xs text-forest font-bold block mb-1">📋 Clinical Decision Support</span>}
                 {msg.text}
               </div>
               {msg.tab && (
@@ -194,7 +194,7 @@ function EngagementConsistencyCard({ patientId }: { patientId: number }) {
     <div className="bg-white rounded-2xl border border-sand p-5">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-serif text-bark font-semibold">📊 Engagement Consistency</h3>
-        <span className="text-xs text-bark/40 font-semibold bg-sand px-2.5 py-1 rounded-full">AI insight</span>
+        <span className="text-xs text-bark/60 font-medium bg-sand px-2.5 py-1 rounded-full border border-sand-dark/20">Longitudinal metric</span>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         {[
@@ -323,7 +323,7 @@ export default function DoctorView({ onBack, userName }: Props) {
           >🗺️ Regional</button>
           <button onClick={() => setTab('ai')}
             className={`text-xs font-bold px-3 py-1.5 rounded-full transition-colors ${tab === 'ai' ? 'bg-sage text-bark' : 'bg-parchment/10 text-parchment/70 hover:bg-parchment/20'}`}
-          >🤖 Clinical AI</button>
+          >📋 Decision Support</button>
         </div>
       </header>
 

@@ -3,23 +3,35 @@
 @import 'tailwindcss';
 
 @theme {
-  --color-forest: #1B5E4E;
-  --color-forest-dark: #0F3D30;
-  --color-forest-light: #2A7A63;
-  --color-terracotta: #C4622D;
-  --color-terracotta-light: #D4784A;
-  --color-amber: #E8A838;
-  --color-amber-light: #F2C96C;
-  --color-parchment: #FDF6EC;
-  --color-cream: #FEF9F4;
-  --color-bark: #2D1B0E;
-  --color-sage: #7BA08C;
-  --color-sage-light: #A8C4B4;
-  --color-plum: #4A1942;
-  --color-sand: #F5E6C8;
-  --color-rose: #D4526E;
+  /* Figma Design Brief Primary Palette */
+  --color-forest: #0F6E56;         /* Teal Accent: #0F6E56 */
+  --color-forest-dark: #094738;    /* Deep Teal */
+  --color-forest-light: #168A6D;   /* Bright Teal */
+  --color-teal: #0F6E56;
+  --color-terracotta: #D85A30;     /* Soft Coral: #D85A30 */
+  --color-terracotta-light: #E2724D;
+  --color-coral: #D85A30;
+  --color-amber: #BA7517;          /* Warm Amber: #BA7517 */
+  --color-amber-light: #D48C28;
+  --color-plum: #534AB7;           /* Deep Purple: #534AB7 */
+  --color-purple: #534AB7;
+
+  /* Neutral & Card Palette */
+  --color-parchment: #F9F8F6;      /* Card BG / App background from brief */
+  --color-cream: #FFFFFF;          /* Pure White */
+  --color-bark: #1A1A1A;           /* Text Dark: #1A1A1A (High Contrast WCAG AA/AAA) */
+  --color-muted: #5F5E5A;          /* Text Muted: #5F5E5A */
+  --color-sand: #D3D1C7;           /* Border: #D3D1C7 */
+  --color-border: #D3D1C7;
+
+  /* Semantic */
+  --color-sage: #639922;           /* Success: #639922 */
+  --color-sage-light: #B4DF85;
+  --color-rose: #A32D2D;           /* Error / SOS: #A32D2D */
+  --color-info: #185FA5;           /* Info: #185FA5 */
+
   --font-serif: 'Noto Serif', serif;
-  --font-sans: 'Nunito', sans-serif;
+  --font-sans: 'Nunito', system-ui, -apple-system, sans-serif;
 }
 
 html,

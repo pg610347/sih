@@ -1,27 +1,20 @@
-// Fallback project key (safely obfuscated to satisfy git push scanners)
-const FALLBACK_KEY = (() => {
-  try {
-    return atob("QVEuQWI4Uk42SmZmZFlhdGFtNUVzMDRKU19fTkdlbFhKb1RpeEVEc1ZQUlh0TjkycWpCSmc=")
-  } catch {
-    return ""
-  }
-})()
+// ─── Backend Gemini API Client ───────────────────────────────────────────────
+// In adherence to security best practices, the Google Gemini API key is stored
+// strictly on the server (environment variables) and NEVER exposed to client browsers.
+const BACKEND_ENDPOINT = '/api/gemini'
 
-// Resolve API key from localStorage (in-app configuration), Vite env variables, or bundled project fallback
+// Optional custom key override if a doctor/admin enters their own personal key in settings
 export function getGeminiApiKey(): string {
   try {
     const fromStorage = localStorage.getItem('smaran_gemini_api_key') || localStorage.getItem('gemini_api_key')
     if (fromStorage && fromStorage.trim()) return fromStorage.trim()
   } catch {}
-  return (
-    import.meta.env.GEMINI_API_KEY ||
-    import.meta.env.VITE_GEMINI_API_KEY ||
-    FALLBACK_KEY
-  ).trim()
+  return ''
 }
 
 export function hasGeminiApiKey(): boolean {
-  return !!getGeminiApiKey()
+  // Always true: Backend securely manages the Gemini API key
+  return true
 }
 
 export function saveGeminiApiKey(key: string): void {
@@ -37,36 +30,29 @@ export function clearGeminiApiKey(): void {
   } catch {}
 }
 
-// Tested active models in Google Gemini API
-const CANDIDATE_MODELS = [
-  "gemini-3.6-flash",
-  "gemini-3.8-flash",
-  "gemini-3.7-flash",
-  "gemini-2.5-flash",
-  "gemini-2.0-flash",
-  "gemini-1.5-flash",
-]
+// ─── Quick backend connectivity check ────────────────────────────────────────
 
-// ─── Quick key verification ───────────────────────────────────────────────────
-
-export async function testGeminiApiKey(key: string): Promise<{ ok: boolean; error?: string }> {
-  if (!key || !key.trim()) return { ok: false, error: "API key cannot be blank." }
+export async function testGeminiApiKey(_key?: string): Promise<{ ok: boolean; error?: string }> {
   try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key.trim()}`)
+    const res = await fetch(BACKEND_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userMessage: 'ping' }),
+    })
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
-      return { ok: false, error: err.error?.message || `HTTP ${res.status}: Invalid key` }
+      return { ok: false, error: err.error || `HTTP ${res.status}` }
     }
     return { ok: true }
   } catch (e: any) {
-    return { ok: false, error: e.message || "Network error connecting to Gemini API" }
+    return { ok: false, error: e.message || 'Network error connecting to backend Gemini endpoint' }
   }
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface GeminiMessage {
-  role: "user" | "model"
+  role: 'user' | 'model'
   parts: { text: string }[]
 }
 
@@ -115,8 +101,8 @@ Rules:
 // ─── API call ─────────────────────────────────────────────────────────────────
 
 const VALID_TARGETS = new Set([
-  "diary", "music", "reminiscence", "pairs",
-  "sort", "pattern", "sequence", "orientation", "home",
+  'diary', 'music', 'reminiscence', 'pairs',
+  'sort', 'pattern', 'sequence', 'orientation', 'home',
 ])
 
 export async function getGeminiResponse(
@@ -124,80 +110,46 @@ export async function getGeminiResponse(
   history: GeminiMessage[],
   systemPrompt: string,
 ): Promise<AIResponse> {
-  const apiKey = getGeminiApiKey()
-  if (!apiKey) {
-    throw new Error("Gemini API key is missing. Please add GEMINI_API_KEY to your .env file, or tap 'Connect API Key' in the companion settings.")
+  const res = await fetch(BACKEND_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      userMessage,
+      history,
+      systemPrompt,
+    }),
+  })
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}))
+    throw new Error(errorData.error || errorData.details || `Backend API error (${res.status})`)
   }
 
-  const contents: GeminiMessage[] = [
-    ...history,
-    { role: "user", parts: [{ text: userMessage }] },
-  ]
+  const data = await res.json()
+  let text = data.text || ''
+  let navigate = data.navigate && VALID_TARGETS.has(data.navigate) ? data.navigate : undefined
+  let chips = Array.isArray(data.chips)
+    ? data.chips.map((c: any) => (typeof c === 'string' ? c : c?.title || c?.text || String(c))).filter(Boolean)
+    : undefined
 
-  let lastError: Error | null = null
-
-  // Try candidate models in order if one experiences 503 high demand or temporary errors
-  for (const model of CANDIDATE_MODELS) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
+  // If text looks like JSON, attempt parsing
+  if (typeof text === 'string' && (text.startsWith('{') || text.includes('"text"'))) {
     try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: systemPrompt }] },
-          contents,
-          generationConfig: {
-            responseMimeType: "application/json",
-            temperature: 0.8,
-            maxOutputTokens: 1024,
-          },
-        }),
-      })
-
-      if (!res.ok) {
-        const errorText = await res.text().catch(() => "Unknown error")
-        lastError = new Error(`Gemini (${model}) ${res.status}: ${errorText}`)
-        // If high demand (503) or rate limit (429), immediately try next model
-        if (res.status === 503 || res.status === 429 || res.status === 404) {
-          console.warn(`Model ${model} returned ${res.status}, trying fallback model...`)
-          continue
-        }
-        throw lastError
+      const parsed = JSON.parse(text)
+      if (parsed.text) text = parsed.text
+      if (parsed.navigate && VALID_TARGETS.has(parsed.navigate)) navigate = parsed.navigate
+      if (Array.isArray(parsed.chips)) chips = parsed.chips
+    } catch {
+      const textMatch = text.match(/"text"\s*:\s*"((?:[^"\\]|\\.)*)/)
+      if (textMatch) {
+        text = textMatch[1].replace(/\\"/g, '"').replace(/\\n/g, ' ')
       }
-
-      const data = await res.json()
-      const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text
-
-      if (!rawText) {
-        continue
-      }
-
-      let parsed: any
-      try {
-        parsed = JSON.parse(rawText)
-      } catch {
-        const textMatch = rawText.match(/"text"\s*:\s*"((?:[^"\\]|\\.)*)/)
-        const extracted = textMatch ? textMatch[1].replace(/\\"/g, '"').replace(/\\n/g, ' ') : rawText.replace(/[{}"\[\]]/g, '').trim()
-        return {
-          text: extracted || "I am here with you ❤️",
-          chips: ["Play a game 🎮", "Listen to music 🎵", "Open my diary 📔"],
-        }
-      }
-
-      const chips = Array.isArray(parsed.chips)
-        ? parsed.chips.map((c: any) => (typeof c === 'string' ? c : c?.title || c?.text || String(c))).filter(Boolean)
-        : undefined
-
-      return {
-        text: parsed.text || "I am here with you ❤️",
-        navigate: parsed.navigate && VALID_TARGETS.has(parsed.navigate) ? parsed.navigate : undefined,
-        chips,
-      }
-    } catch (err: any) {
-      lastError = err
-      console.warn(`Attempt with ${model} failed:`, err.message)
     }
   }
 
-  throw lastError || new Error("All Gemini models were unavailable. Please try again.")
+  return {
+    text: text || 'I am here with you ❤️',
+    navigate,
+    chips,
+  }
 }

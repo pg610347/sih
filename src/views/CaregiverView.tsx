@@ -249,8 +249,8 @@ const NAV_ITEMS: { tab: Tab; emoji: string; label: string }[] = [
   { tab: 'diary',       emoji: '📔', label: 'Diary'      },
   { tab: 'medications', emoji: '💊', label: 'Medications'},
   { tab: 'activity',    emoji: '🕐', label: 'Activity'   },
-  { tab: 'chat',        emoji: '💬', label: 'Chat'       },
-  { tab: 'ai',          emoji: '🤖', label: 'AI Assistant'},
+  { tab: 'chat',        emoji: '💬', label: 'Doctor Chat'},
+  { tab: 'ai',          emoji: '💡', label: 'Care Insights'},
 ]
 
 interface Props { onBack: () => void; userName?: string }

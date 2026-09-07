@@ -188,6 +188,7 @@ export default function App() {
         language={language}
         onSelectRole={handleSelectRole}
         onChangeLanguage={() => setView('language')}
+        onQuickLogin={(quickRole, quickName) => handleLogin({ name: quickName, role: quickRole })}
       />
     )
   }

@@ -64,21 +64,20 @@ function CompanionAvatar({ persona, voiceState }: { persona: Gender; voiceState:
   const p = PERSONAS[persona]
   return (
     <div className="relative flex items-center justify-center w-28 h-28 mx-auto">
+      {/* Gentle, accessible listening halo - single calm border ring instead of neon ripples */}
       {voiceState === 'listening' && (
-        <>
-          <div className={`absolute inset-0 rounded-full border-4 border-rose/50 ripple-ring`} />
-          <div className={`absolute inset-0 rounded-full border-4 border-rose/30 ripple-ring-2`} />
-          <div className={`absolute inset-0 rounded-full border-4 border-rose/20 ripple-ring-3`} />
-        </>
+        <div className="absolute inset-0 rounded-full border-2 border-rose/60 animate-pulse pointer-events-none" />
       )}
-      <div className={`w-24 h-24 rounded-full flex items-center justify-center text-6xl bg-white border-4 ${p.ring} ring-4 shadow-lg z-10`}>
+      <div className={`w-24 h-24 rounded-full flex items-center justify-center text-6xl bg-cream border-4 ${p.ring} ring-2 ring-sand shadow-md z-10`}>
         {p.emoji}
       </div>
       {voiceState === 'speaking' && (
-        <div className="absolute -bottom-2 flex gap-1 items-end z-20">
-          {[1,2,3,4,5].map(i => (
-            <div key={i} className="speak-bar w-1.5 bg-forest rounded-full"
-              style={{ height: '20px', animationDelay: `${i * 0.1}s`, animationDuration: `${0.4 + i * 0.05}s` }}
+        <div className="absolute -bottom-2 flex gap-1 items-end z-20 bg-white/90 px-2 py-0.5 rounded-full border border-sand shadow-sm">
+          {[1, 2, 3, 4, 5].map(i => (
+            <div
+              key={i}
+              className="w-1.5 bg-forest rounded-full speak-bar"
+              style={{ height: '16px', animationDelay: `${i * 0.1}s`, animationDuration: `${0.45 + i * 0.05}s` }}
             />
           ))}
         </div>
@@ -90,14 +89,19 @@ function CompanionAvatar({ persona, voiceState }: { persona: Gender; voiceState:
 // ─── Voice state label ────────────────────────────────────────────────────────
 
 function VoiceLabel({ state, name }: { state: VoiceState; name: string }) {
-  if (state === 'idle')      return <p className="text-bark/40 text-xl text-center">{name} is here for you ❤️</p>
-  if (state === 'listening') return <p className="text-rose text-xl font-bold text-center animate-pulse">Listening...</p>
-  if (state === 'thinking')  return (
-    <div className="flex items-center gap-2 justify-center">
-      {[0,1,2].map(i => <div key={i} className="think-dot w-3 h-3 rounded-full bg-bark/40" style={{ animationDelay: `${i * 0.2}s` }} />)}
+  if (state === 'idle') return <p className="text-bark/60 text-xl font-medium text-center">{name} is here to listen</p>
+  if (state === 'listening') return <p className="text-rose text-xl font-bold text-center">Listening to you...</p>
+  if (state === 'thinking') return (
+    <div className="flex items-center gap-2 justify-center py-1">
+      <span className="text-forest text-base font-semibold">{name} is thinking</span>
+      <div className="flex items-center gap-1.5">
+        {[0, 1, 2].map(i => (
+          <div key={i} className="w-2 h-2 rounded-full bg-forest/60 think-dot" style={{ animationDelay: `${i * 0.2}s` }} />
+        ))}
+      </div>
     </div>
   )
-  if (state === 'speaking')  return <p className="text-forest text-xl font-bold text-center">{name} is speaking...</p>
+  if (state === 'speaking') return <p className="text-forest text-xl font-bold text-center">{name} is speaking...</p>
   return null
 }
 
@@ -341,41 +345,56 @@ export default function AICompanionView({ onBack, onNavigate, userName }: Props)
   return (
     <div className="min-h-screen flex flex-col bg-parchment">
       {/* Header */}
-      <div className="flex items-center gap-3 px-5 py-3.5 bg-white border-b border-sand sticky top-0 z-10">
-        <button onClick={onBack} className="w-12 h-12 flex items-center justify-center rounded-full bg-sand text-bark text-2xl shrink-0 active:scale-95 transition-transform">←</button>
+      <div className="flex items-center gap-3 px-5 py-3.5 bg-white border-b border-sand sticky top-0 z-10 shadow-xs">
+        <button
+          onClick={onBack}
+          className="w-12 h-12 flex items-center justify-center rounded-2xl bg-sand/60 text-bark hover:bg-sand text-2xl shrink-0 active:scale-95 transition-transform"
+          aria-label="Go back"
+        >
+          ←
+        </button>
         <div className="flex-1 text-center">
-          <p className="font-serif text-bark text-xl font-bold">{p.name}</p>
+          <p className="font-serif text-bark text-2xl font-bold leading-tight">{p.name}</p>
           <div className="flex items-center justify-center gap-2 mt-0.5">
-            <span className="text-bark/40 text-xs">Your companion</span>
+            <span className="text-bark/50 text-sm">Your Personal Companion</span>
             <button
               onClick={() => setShowSettings(true)}
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold transition-all ${
+              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold transition-all border ${
                 hasKey
-                  ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                  : 'bg-amber/30 text-bark hover:bg-amber/40 animate-pulse'
+                  ? 'bg-forest/10 border-forest/30 text-forest'
+                  : 'bg-amber/20 border-amber/40 text-bark'
               }`}
             >
-              <span className={`w-2 h-2 rounded-full ${hasKey ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-              {hasKey ? 'Gemini Live' : 'Connect Gemini API'}
+              <span className={`w-2 h-2 rounded-full ${hasKey ? 'bg-forest' : 'bg-amber'}`} />
+              {hasKey ? 'Online · Live' : 'Offline Friendly'}
             </button>
           </div>
         </div>
-        <button onClick={() => setShowSettings(true)} className="w-12 h-12 flex items-center justify-center rounded-full bg-sand text-bark text-2xl shrink-0 active:scale-95 transition-transform">⚙️</button>
+        <button
+          onClick={() => setShowSettings(true)}
+          className="w-12 h-12 flex items-center justify-center rounded-2xl bg-sand/60 text-bark hover:bg-sand text-2xl shrink-0 active:scale-95 transition-transform"
+          aria-label="Companion settings"
+        >
+          ⚙️
+        </button>
       </div>
 
-      {/* Warning banner when key is missing or errored */}
+      {/* Reassuring information notice if key is missing or errored — dignified tone */}
       {(!hasKey || lastError) && (
-        <div className="bg-amber/15 border-b border-amber/30 px-4 py-2 flex items-center justify-between text-xs text-bark">
-          <span>
-            {lastError
-              ? `⚠️ Gemini API: ${lastError.slice(0, 70)}... (using friendly offline responses)`
-              : 'ℹ️ Offline mode active. Add your Gemini API key in settings for intelligent custom answers.'}
-          </span>
+        <div className="bg-sand/30 border-b border-sand px-5 py-2.5 flex items-center justify-between text-xs text-bark/80">
+          <div className="flex items-center gap-2">
+            <span className="text-base">🌸</span>
+            <span>
+              {lastError
+                ? 'Devi is currently using family-friendly comforting responses.'
+                : 'Devi is ready to chat with comforting responses. Connect Gemini in settings anytime.'}
+            </span>
+          </div>
           <button
             onClick={() => setShowSettings(true)}
-            className="ml-2 font-bold text-forest underline shrink-0 hover:opacity-80"
+            className="ml-3 font-bold text-forest hover:underline shrink-0"
           >
-            Configure Key ⚙️
+            Settings
           </button>
         </div>
       )}

@@ -264,7 +264,7 @@ export default function LoginView({ role: initialRole, language: currentLanguage
                 : 'text-[#5F5E5A] hover:text-[#1A1A1A]'
             }`}
           >
-            Create Account ✨
+            Create Account
           </button>
         </div>
 
